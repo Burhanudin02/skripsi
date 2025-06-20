@@ -1,4 +1,5 @@
 import numpy as np
+np.float = float
 import pybullet as p
 from surrol.gym.surrol_env import SurRoLEnv, RENDER_HEIGHT
 from surrol.robots.ecm import Ecm

@@ -1,6 +1,7 @@
 import os
 import time
 import numpy as np
+np.float = float
 
 import pybullet as p
 from surrol.tasks.ecm_env import EcmEnv, goal_distance

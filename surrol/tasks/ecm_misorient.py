@@ -1,6 +1,7 @@
 import os
 import time
 import numpy as np
+np.float = float
 import cv2
 
 import pybullet as p

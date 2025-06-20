@@ -10,7 +10,7 @@ from surrol.utils.utils import RGB_COLOR_255, Boundary, Trajectory, get_centroid
 from surrol.robots.ecm import RENDER_HEIGHT, RENDER_WIDTH, FoV
 from surrol.const import ASSET_DIR_PATH
 import numpy as np
-
+np.float = float
 
 class ActiveTrack(EcmEnv):
     """
