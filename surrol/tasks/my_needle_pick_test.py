@@ -32,7 +32,7 @@ def evaluate_model(model_path, num_episodes=10):
             
             total_reward += reward  # Accumulate the reward for this episode
   
-            print(f"Total rewaerd: {total_reward}")
+            print(f"Total reward: {total_reward}")
 
             # Optionally, you can render the environment to visualize the robot's performance
             # env.render()
