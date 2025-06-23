@@ -124,6 +124,7 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         # Calculate the distance between the robot's gripper/jaw/tip position and the desired needle position
         distance = np.linalg.norm(achieved_goal - desired_goal)
+        # aalculate the distance between the needle to it's goal position
         goal_dist = np.linalg.norm(desired_goal - self.goal)
 
         # Reward is the negative distance (the closer to the desired goal, the better)
@@ -131,27 +132,27 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Reward shaping: add bonus if the robot is close to the goal
 
-        # if distance < 1.0 :
-        #     reward += 0.1
+        if distance < 0.5 :
+            reward += 0.05
 
-        # if distance < 0.5 :
-        #     reward += 0.5
+        if distance < 0.3 :
+            reward += 0.2
 
         if distance < 0.1:
-            reward += 20  # Bonus if the gripper is close to the desired position
+            reward += 5.0  # Bonus if the gripper is close to the desired position
 
-        # if goal_dist < 1.0:
-        #     reward += 0.1
+        if goal_dist < 0.5:
+            reward += 0.05
 
-        # if goal_dist < 0.5:
-        #     reward += 0.5
+        if goal_dist < 0.3:
+            reward += 0.2
 
         if goal_dist < 0.1:
-            reward += 100 # Bonus if the gripper is close to the goal needle position
+            reward += 10.0 # Bonus if the gripper is close to the goal needle position
 
         # Penalize if the robot's joints are out of bounds
         if info.get("joint_valid", True) is False:
-            reward -= 1
+            reward -= 1.0
             print('Punished: Joint out of bounds')
 
         return reward
@@ -245,7 +246,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # Get joint positions from observation
         robot_state = self._get_robot_state(idx=0)
 
-        psm_joints_angle= self.psm1.inverse_kinematics((robot_state[:3], robot_state[3:7]), self.psm1.TIP_LINK_INDEX)
+        psm_joints_angle= self.psm1.inverse_kinematics((robot_state[:3], robot_state[3:7]), self.psm1.EEF_LINK_INDEX)
         # print(f"psm joints angle: {psm_joints_angle}")
 
         joint_valid = True
