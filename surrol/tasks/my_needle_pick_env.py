@@ -22,8 +22,8 @@ class NeedlePickTrainEnv(PsmEnv):
 
     # Joint limits for the robot arm (defined in radians)
     TOOL_JOINT_LIMIT = {
-        'lower': np.deg2rad([-91.0, -53.0, 0.0, -260.0, -80.0, -80.0, -20.0]),
-        'upper': np.deg2rad([91.0, 53.0, 240.0, 260.0, 80.0, 80.0, 80.0]),
+        'lower': np.deg2rad([-6.04, -32.26, 8.5, -172.45, -44.78, -43.25]),
+        'upper': np.deg2rad([44.03, 9.58, 12.74, 164.87, 48.2, 43.47]),
     }
 
     # Action space: Smaller, more controlled movements
@@ -245,8 +245,11 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Get joint positions from observation
         robot_state = self._get_robot_state(idx=0)
-
-        psm_joints_angle= self.psm1.inverse_kinematics((robot_state[:3], robot_state[3:7]), self.psm1.EEF_LINK_INDEX)
+        position = robot_state[:3]
+        euler_angles = robot_state[3:6]
+        orientation_quat = p.getQuaternionFromEuler(euler_angles)
+        psm_joints_angle = self.psm1.inverse_kinematics((position, orientation_quat), self.psm1.EEF_LINK_INDEX)       
+        
         # print(f"psm joints angle: {psm_joints_angle}")
 
         joint_valid = True
