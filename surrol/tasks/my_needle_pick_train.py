@@ -51,3 +51,7 @@ if __name__ == '__main__':
 #needle_pick_ppo_gpu_14 --> n_steps=1024, batch_size=32, learning_rate=1e-2, clip_range=0.1 (transfer learn from needle_pick_ppo_gpu_13 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_15 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (updated less-sparse reward shape, hyp-param from chatgpt 1M t-steps)
 #needle_pick_ppo_gpu_16 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_15 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_17 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (angle based punishment erased, 1.000.000 timesteps)
+#needle_pick_ppo_gpu_18 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_17 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_19 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_18 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_20 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_19 + 1.000.000 timesteps)
