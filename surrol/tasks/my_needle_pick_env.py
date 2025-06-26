@@ -124,6 +124,9 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         # Calculate the distance between the robot's gripper/jaw/tip position and the desired needle position
         distance = np.linalg.norm(achieved_goal - desired_goal)
+
+        # Calculate the distace between the robot's gripper/jaw/tip position and the goal position
+        distance_to_goal = np.linalg.norm(achieved_goal - self.goal)
         
         # Calculate the distance between the needle to it's goal position
         goal_dist = np.linalg.norm(desired_goal - self.goal)
@@ -135,7 +138,7 @@ class NeedlePickTrainEnv(PsmEnv):
         if distance < 0.1:
             reward += 20
         
-        if goal_dist < 0.1:
+        if goal_dist < 0.1 and distance_to_goal < 0.1:
             reward += 100
 
         # # Reward shaping: less-sparse reward
@@ -148,13 +151,13 @@ class NeedlePickTrainEnv(PsmEnv):
         # if distance < 0.1:
         #     reward += 5.0  # Bonus if the gripper is close to the desired position
 
-        # if goal_dist < 0.5:
+        # if goal_dist < 0.5 and distance_to_goal < 0.5:
         #     reward += 0.05
 
-        # if goal_dist < 0.3:
+        # if goal_dist < 0.3 and distance_to_goal < 0.3:
         #     reward += 0.2
 
-        # if goal_dist < 0.1:
+        # if goal_dist < 0.1 and distance_to_goal < 0.1:
         #     reward += 10.0 # Bonus if the gripper is close to the goal needle position
 
 

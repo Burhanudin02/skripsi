@@ -1,7 +1,7 @@
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
-from my_needle_pick_env import NeedlePickTrainEnv  # Make sure to import your environment
+from my_needle_pick_env import NeedlePickTrainEnv  # Use relative import if this file is in the same package
 
 
 def evaluate_model(model_path, num_episodes=10):
@@ -48,7 +48,7 @@ def evaluate_model(model_path, num_episodes=10):
 
 if __name__ == "__main__":
     # Define the path where the trained model is saved
-    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_16"  # Update this path to your model's location
+    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_24"  # Update this path to your model's location
     
     # Evaluate the trained model for 3 episodes
     evaluate_model(model_path, num_episodes=3)
