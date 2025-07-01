@@ -28,10 +28,10 @@ class NeedlePickTrainEnv(PsmEnv):
 
     # Action space: Smaller, more controlled movements
     action_space = spaces.Box(
-        low=np.array([-0.00000000000005, -0.00000000000005, -0.00000000000005], dtype=np.float64),
-        high=np.array([0.00000000000005, 0.00000000000005, 0.00000000000005], dtype=np.float64),
-        dtype=np.float64
-    )
+                    low=np.array([-5e-14, -5e-14, -5e-14, -5e-14, -1.0], dtype=np.float64),
+                    high=np.array([5e-14, 5e-14, 5e-14, 5e-14, 1.0], dtype=np.float64),
+                    dtype=np.float64
+                )
 
     def _env_setup(self):
         """
@@ -134,31 +134,31 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward is the negative distance (the closer to the desired goal, the better)
         reward = -distance
 
-        # Reward shaping: sparse reward
-        # if distance < 0.1:
-        #     reward += 20
+        #Reward shaping: sparse reward
+        if distance < 0.1:
+            reward += 20
         
-        # if goal_dist < 0.1 and distance_to_goal < 0.1:
-        #     reward += 100
+        if goal_dist < 0.1 and distance_to_goal < 0.1:
+            reward += 100
 
         # # Reward shaping: less-sparse reward
-        if distance < 0.5 :
-            reward += (1 - distance) * 0.05
+        # if distance < 0.5 :
+        #     reward += (1 - distance) * 0.05
 
-        if distance < 0.3 :
-            reward += (1 - distance) * 0.2
+        # if distance < 0.3 :
+        #     reward += (1 - distance) * 0.2
 
-        if distance < 0.1:
-            reward += (1 - distance) * 5.0  # Bonus if the gripper is close to the desired position
+        # if distance < 0.1:
+        #     reward += (1 - distance) * 5.0  # Bonus if the gripper is close to the desired position
 
-        if goal_dist < 0.5 and distance_to_goal < 0.5:
-            reward += (1 - distance_to_goal) * 0.05
+        # if goal_dist < 0.5 and distance_to_goal < 0.5:
+        #     reward += (1 - distance_to_goal) * 0.05
 
-        if goal_dist < 0.3 and distance_to_goal < 0.3:
-            reward += (1 - distance_to_goal) * 0.2
+        # if goal_dist < 0.3 and distance_to_goal < 0.3:
+        #     reward += (1 - distance_to_goal) * 0.2
 
-        if goal_dist < 0.1 and distance_to_goal < 0.1:
-            reward += (1 - distance_to_goal) * 10.0 # Bonus if the gripper is close to the goal needle position
+        # if goal_dist < 0.1 and distance_to_goal < 0.1:
+        #     reward += (1 - distance_to_goal) * 10.0 # Bonus if the gripper is close to the goal needle position
 
 
         # # Reward shaping: Curriculum reward, coming soon...

@@ -85,9 +85,9 @@ def main():
                     if k in KEY_MAP:
                         action[:3] += KEY_MAP[k]  # Add to XYZ movement part of action
                     elif k == ord('j'):  # Press 'j' to rotate the jaw
-                        action[3] = 1.0  # Jaw open
+                        action[3] = 1.0  
                     elif k == ord('k'):  # Press 'k' to rotate the jaw
-                        action[3] = -1.0  # Jaw close
+                        action[3] = -1.0  
                     elif k == ord('o'):
                         action[4] = 1  # Open jaw
                     # elif k == ord('p'):
