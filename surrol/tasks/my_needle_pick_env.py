@@ -134,31 +134,31 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward is the negative distance (the closer to the desired goal, the better)
         reward = -distance
 
-        #Reward shaping: sparse reward
-        if distance < 0.1:
-            reward += 20
-        
-        if goal_dist < 0.1 and distance_to_goal < 0.1:
-            reward += 100
-
-        # # Reward shaping: less-sparse reward
-        # if distance < 0.5 :
-        #     reward += (1 - distance) * 0.05
-
-        # if distance < 0.3 :
-        #     reward += (1 - distance) * 0.2
-
+        # #Reward shaping: sparse reward
         # if distance < 0.1:
-        #     reward += (1 - distance) * 5.0  # Bonus if the gripper is close to the desired position
-
-        # if goal_dist < 0.5 and distance_to_goal < 0.5:
-        #     reward += (1 - distance_to_goal) * 0.05
-
-        # if goal_dist < 0.3 and distance_to_goal < 0.3:
-        #     reward += (1 - distance_to_goal) * 0.2
-
+        #     reward += 20
+        
         # if goal_dist < 0.1 and distance_to_goal < 0.1:
-        #     reward += (1 - distance_to_goal) * 10.0 # Bonus if the gripper is close to the goal needle position
+        #     reward += 100
+
+        # Reward shaping: less-sparse reward
+        if distance < 0.5 :
+            reward += (1 - distance) * 0.05
+
+        if distance < 0.3 :
+            reward += (1 - distance) * 0.2
+
+        if distance < 0.1:
+            reward += (1 - distance) * 0.5  # Bonus if the gripper is close to the desired position
+
+        if goal_dist < 0.5 and distance_to_goal < 0.5:
+            reward += (1 - distance_to_goal) * 0.05
+
+        if goal_dist < 0.3 and distance_to_goal < 0.3:
+            reward += (1 - distance_to_goal) * 0.2
+
+        if goal_dist < 0.1 and distance_to_goal < 0.1:
+            reward += (1 - distance_to_goal) * 0.5 # Bonus if the gripper is close to the goal needle position
 
 
         # # Reward shaping: Curriculum reward, coming soon...
