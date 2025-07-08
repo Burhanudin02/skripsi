@@ -48,7 +48,7 @@ def evaluate_model(model_path, num_episodes=10):
 
 if __name__ == "__main__":
     # Define the path where the trained model is saved
-    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_45"  # Update this path to your model's location
+    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_43"  # Update this path to your model's location
     
     # Evaluate the trained model for 3 episodes
     evaluate_model(model_path, num_episodes=3)

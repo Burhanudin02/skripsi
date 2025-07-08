@@ -68,16 +68,16 @@ if __name__ == '__main__':
 #needle_pick_ppo_gpu_31 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_30 + 1.000.000 timesteps)  --> overfit
 #needle_pick_ppo_gpu_32 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_31 + 1.000.000 timesteps)  --> overfit
 #needle_pick_ppo_gpu_33 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_32 + 1.000.000 timesteps)  --> overfit
-#needle_pick_ppo_gpu_34 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_33 + 1.000.000 timesteps)  --> overfit
+#needle_pick_ppo_gpu_34 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_33 + 1.000.000 timesteps)  --> overfit, reward shape not smooth enough
 #needle_pick_ppo_gpu_35 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_25 + 1.000.000 timesteps)  
 #needle_pick_ppo_gpu_36 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_35 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_37 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_36 + 1.000.000 timesteps)  
-#needle_pick_ppo_gpu_38 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (corrected action space, using sparse reward shaping, 1M timesteps) --> ent_coef too small 
-#needle_pick_ppo_gpu_39 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_38 + 1.000.000 timesteps)  --> ent_coef too small
-#needle_pick_ppo_gpu_40 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_39 + 1.000.000 timesteps)  --> ent_coef too small
-#needle_pick_ppo_gpu_41 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_40 + 1.000.000 timesteps)  --> ent_coef too small
-#needle_pick_ppo_gpu_42 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_41 + 1.000.000 timesteps)  --> ent_coef too small
-#needle_pick_ppo_gpu_43 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_42 + 1.000.000 timesteps)  --> ent_coef too small
+#needle_pick_ppo_gpu_38 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (corrected action space, using sparse reward shaping, 1M timesteps) --> ent_coef small 
+#needle_pick_ppo_gpu_39 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_38 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_40 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_39 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_41 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_40 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_42 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_41 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_43 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_42 + 1.000.000 timesteps)  --> overfit, too exploitative
 #needle_pick_ppo_gpu_44 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (corrected action space, using improved less-sparse reward shaping) 
 #needle_pick_ppo_gpu_45 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_44 + 1.000.000 timesteps)  --> traped at local optimum
 #needle_pick_ppo_gpu_46 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_45 + 1.000.000 timesteps)  --> traped at local optimum
@@ -89,5 +89,18 @@ if __name__ == '__main__':
 #needle_pick_ppo_gpu_52 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_51 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_53 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_52 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_54 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_53 + 1.000.000 timesteps)
-#needle_pick_ppo_gpu_55 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_54 + 1.000.000 timesteps)
-
+#needle_pick_ppo_gpu_55 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_54 + 1.000.000 timesteps)    --> underfit, too explorative
+#needle_pick_ppo_gpu_56 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.2, clip_range=0.2 (using improved less-sparse reward shaping, 1.000.000 timesteps)
+#needle_pick_ppo_gpu_57 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.2, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_56 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_58 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.2, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_57 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_59 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.2, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_58 + 1.000.000 timesteps)    --> underfit, too explorative, too high ent_coef
+#needle_pick_ppo_gpu_60 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_43 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_61 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_60 + 1.000.000 timesteps)  
+#needle_pick_ppo_gpu_62 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_61 + 1.000.000 timesteps)  --> kinda overfit, try to explore more
+#needle_pick_ppo_gpu_63 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (using improved less-sparse reward shaping, 1.000.000 timesteps)  
+#needle_pick_ppo_gpu_64 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_63 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_65 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_64 + 1.000.000 timesteps)  
+#needle_pick_ppo_gpu_66 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_65 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_67 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_66 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_68 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_67 + 1.000.000 timesteps) 
+#needle_pick_ppo_gpu_69 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_55 + 1.000.000 timesteps)
