@@ -116,6 +116,97 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Combine robot state and object position into a single observation
         return np.concatenate([robot_state, normalized_object_pos])
+    
+    def sparse_reward_shape(self, reward, distance, goal_dist, distance_to_goal):
+        
+        reward = -distance
+
+        # Reward shaping: sparse reward
+        if distance < 0.1:
+            reward += 20
+        
+        if goal_dist < 0.1 and distance_to_goal < 0.1:
+            reward += 100
+
+        return reward
+
+    def less_sparse_reward_shape(self, reward, distance, goal_dist, distance_to_goal):
+        
+        reward = -distance
+
+        # Reward shaping: less-sparse reward
+        if distance < 0.5 :
+            reward += (1 - distance) * 0.05
+
+        if distance < 0.3 :
+            reward += (1 - distance) * 0.2
+
+        if distance < 0.1:
+            reward += (1 - distance) * 0.5  # Bonus if the gripper is close to the desired position
+
+        if goal_dist < 0.5 and distance_to_goal < 0.5:
+            reward += (1 - distance_to_goal) * 0.05
+
+        if goal_dist < 0.3 and distance_to_goal < 0.3:
+            reward += (1 - distance_to_goal) * 0.2
+
+        if goal_dist < 0.1 and distance_to_goal < 0.1:
+            reward += (1 - distance_to_goal) * 0.5 # Bonus if the gripper is close to the goal needle position
+
+        return reward
+    
+    def curriculum_learn_reward(self, info, reward, desired_goal, distance, goal_dist):
+        
+        # Stage 1: skip unnecessary observations
+        if info.get("timestep", 0) < 250000:
+            if info.get("joint_valid", True) is False:
+                reward -= 0.1
+            else:
+                reward += 0.1
+        
+        # Stage 2: Approaching the needle
+        elif info.get("timestep", 0) < 500000:
+            # Penalize if the robot's joints are out of bounds
+            if info.get("joint_valid", True) is False:
+                reward -= 0.1
+            else:
+                reward += 0.1
+
+            # Reward for being close to the needle
+            reward += (1-distance) * 0.2
+
+        # Stage 3: Grasp the needle
+        elif info.get("timestep", 0) < 750000:
+            # Penalize if the robot's joints are out of bounds
+            if info.get("joint_valid", True) is False:
+                reward -= 0.1
+            else:
+                reward += 0.1
+
+            # Reward for being close to the needle
+            reward += (1-distance) * 0.2
+            
+            # Reward for grasping the needle
+            if distance < 0.1 and desired_goal[2] > -0.14:
+                reward += np.exp(-distance) 
+
+        # Stage 4: Rise the needle to the goal position
+        elif info.get("timestep", 0) < 1000000:
+            
+            # Reward for being close to the needle
+            reward += (1 - distance) * 0.2
+
+            # Reward for grasping the needle
+            if distance < 0.1 and desired_goal[2] > -0.14:
+                reward += np.exp(-distance)
+            
+            # Reward for reaching the goal position
+            if distance < 0.1 :
+                reward += np.exp(-goal_dist)
+            else:
+                reward -= 0.1
+ 
+        return reward
 
     def compute_reward(self, achieved_goal, desired_goal, info):
         """
@@ -132,42 +223,17 @@ class NeedlePickTrainEnv(PsmEnv):
         goal_dist = np.linalg.norm(desired_goal - self.goal)
 
         # Reward is the negative distance (the closer to the desired goal, the better)
-        reward = -distance
+        reward = 0
 
         # Reward shaping: sparse reward
-        if distance < 0.1:
-            reward += 20
-        
-        if goal_dist < 0.1 and distance_to_goal < 0.1:
-            reward += 100
+        reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
         # # Reward shaping: less-sparse reward
-        # if distance < 0.5 :
-        #     reward += (1 - distance) * 0.05
-
-        # if distance < 0.3 :
-        #     reward += (1 - distance) * 0.2
-
-        # if distance < 0.1:
-        #     reward += (1 - distance) * 0.5  # Bonus if the gripper is close to the desired position
-
-        # if goal_dist < 0.5 and distance_to_goal < 0.5:
-        #     reward += (1 - distance_to_goal) * 0.05
-
-        # if goal_dist < 0.3 and distance_to_goal < 0.3:
-        #     reward += (1 - distance_to_goal) * 0.2
-
-        # if goal_dist < 0.1 and distance_to_goal < 0.1:
-        #     reward += (1 - distance_to_goal) * 0.5 # Bonus if the gripper is close to the goal needle position
-
+        # reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
         # # Reward shaping: Curriculum reward, coming soon...
-
-        # # Penalize if the robot's joints are out of bounds
-        # if info.get("joint_valid", True) is False:
-        #     reward -= 1.0
-        #     print('Punished: Joint out of bounds')
-
+        # reward += self.curriculum_learn_reward(info, reward, distance, goal_dist)
+        
         return reward
 
     def _set_action(self, action: np.ndarray):
@@ -186,6 +252,8 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         # Reset simulation (without re-initializing environment setup)
         print("Reset...")
+
+        self.timestep = 0
 
         # Robot setup: Set the workspace limits and position of the robot
         workspace_limits = self.workspace_limits1
@@ -230,6 +298,9 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         Take a simulation step with the given action. Update the environment's state.
         """
+        # Increment timestep
+        self.timestep += 1
+
         # Check if the needle is out of bounds
         self.needle_out_of_bounds = self.check_needle_out_of_bounds()
 
@@ -266,18 +337,18 @@ class NeedlePickTrainEnv(PsmEnv):
         # print(f"psm joints angle: {psm_joints_angle}")
 
         joint_valid = True
-        # # Check if any joint is outside its limits
-        # for joint_index, joint_pos in enumerate(psm_joints_angle):
-        #     lower_limit = self.TOOL_JOINT_LIMIT['lower'][joint_index]
-        #     upper_limit = self.TOOL_JOINT_LIMIT['upper'][joint_index]
+        # Check if any joint is outside its limits
+        for joint_index, joint_pos in enumerate(psm_joints_angle):
+            lower_limit = self.TOOL_JOINT_LIMIT['lower'][joint_index]
+            upper_limit = self.TOOL_JOINT_LIMIT['upper'][joint_index]
 
-        #     if joint_pos < lower_limit or joint_pos > upper_limit:
-        #         joint_valid = False
-        #         print(f"Joint {joint_index} out of joint limits! Position: {joint_pos}, Limits: [{lower_limit}, {upper_limit}]")
-        #         break
+            if joint_pos < lower_limit or joint_pos > upper_limit:
+                joint_valid = False
+                print(f"Joint {joint_index} out of joint limits! Position: {joint_pos}, Limits: [{lower_limit}, {upper_limit}]")
+                break
 
         # Update info to calculate reward based on joint validity
-        info = {"joint_valid": joint_valid}
+        info = {"joint_valid": joint_valid, "timestep": self.timestep}
 
         # Calculate reward based on achieved goal (robot's tip) and desired goal (needle position)
         reward = self.compute_reward(achieved_goal, desired_goal, info)
