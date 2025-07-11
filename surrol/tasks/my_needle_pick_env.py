@@ -6,6 +6,7 @@ from surrol.const import ASSET_DIR_PATH
 from surrol.tasks.psm_env import PsmEnv
 from gym import spaces
 
+# +
 class NeedlePickTrainEnv(PsmEnv):
     """
     NeedlePickTrainEnv is a custom environment for training a robot to pick a needle.
@@ -225,14 +226,14 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward is the negative distance (the closer to the desired goal, the better)
         reward = 0
 
-        # Reward shaping: sparse reward
-        reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
+#         # Reward shaping: sparse reward
+#         reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
         # # Reward shaping: less-sparse reward
         # reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
-        # # Reward shaping: Curriculum reward, coming soon...
-        # reward += self.curriculum_learn_reward(info, reward, distance, goal_dist)
+        # Reward shaping: Curriculum reward, coming soon...
+        reward += self.curriculum_learn_reward(info, reward, desired_goal, distance, goal_dist)
         
         return reward
 
@@ -373,5 +374,6 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         if mode == 'human':
             return np.array([])  # Implement rendering logic if needed
+# -
 
-##this is the stable enough version, lol
+# #this is the stable enough version, lol
