@@ -159,14 +159,16 @@ class NeedlePickTrainEnv(PsmEnv):
     def curriculum_learn_reward(self, info, reward, desired_goal, distance, goal_dist):
         
         # Stage 1: skip unnecessary observations
-        if info.get("timestep", 0) < 250000:
+        if info.get("timestep", 0) < 10000:
+            print("Stage 1: skip unnecessary observations")
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
             else:
                 reward += 0.1
         
         # Stage 2: Approaching the needle
-        elif info.get("timestep", 0) < 500000:
+        elif info.get("timestep", 0) < 250000:
+            print("Stage 2: Approaching the needle")
             # Penalize if the robot's joints are out of bounds
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
@@ -177,7 +179,8 @@ class NeedlePickTrainEnv(PsmEnv):
             reward += (1-distance) * 0.2
 
         # Stage 3: Grasp the needle
-        elif info.get("timestep", 0) < 750000:
+        elif info.get("timestep", 0) < 500000:
+            print("Stage 3: Grasp the needle")
             # Penalize if the robot's joints are out of bounds
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
@@ -193,7 +196,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Stage 4: Rise the needle to the goal position
         elif info.get("timestep", 0) < 1000000:
-            
+            print("Stage 4: Rise the needle to the goal position")
             # Reward for being close to the needle
             reward += (1 - distance) * 0.2
 
