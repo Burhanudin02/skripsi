@@ -122,11 +122,11 @@ class NeedlePickTrainEnv(PsmEnv):
         reward = -distance
 
         # Reward shaping: sparse reward
-        if distance < 0.1:
-            reward += 20
+        if distance < 0.96:
+            reward += 2
         
-        if goal_dist < 0.1 and distance_to_goal < 0.1:
-            reward += 100
+        if goal_dist < 0.1 and distance_to_goal < 1.0:
+            reward += 10
 
         return reward
 
@@ -135,37 +135,39 @@ class NeedlePickTrainEnv(PsmEnv):
         reward = -distance
 
         # Reward shaping: less-sparse reward
-        if distance < 0.5 :
+        if distance < 3.0 :
             reward += (1 - distance) * 0.05
 
-        if distance < 0.3 :
+        elif distance < 1.5 :
             reward += (1 - distance) * 0.2
 
-        if distance < 0.1:
+        elif distance < 0.96:
             reward += (1 - distance) * 0.5  # Bonus if the gripper is close to the desired position
 
-        if goal_dist < 0.5 and distance_to_goal < 0.5:
-            reward += (1 - distance_to_goal) * 0.05
+        if goal_dist < 0.5 and distance_to_goal < 2.0:
+            reward += (1 - goal_dist) * 0.05
 
-        if goal_dist < 0.3 and distance_to_goal < 0.3:
-            reward += (1 - distance_to_goal) * 0.2
+        elif goal_dist < 0.3 and distance_to_goal < 1.0:
+            reward += (1 - goal_dist) * 0.2
 
-        if goal_dist < 0.1 and distance_to_goal < 0.1:
-            reward += (1 - distance_to_goal) * 0.5 # Bonus if the gripper is close to the goal needle position
+        elif goal_dist < 0.1 and distance_to_goal < 0.5:
+            reward += (1 - goal_dist) * 0.5 # Bonus if the gripper is close to the goal needle position
 
         return reward
     
     def curriculum_learn_reward(self, info, reward, desired_goal, distance, goal_dist):
         
+        steps = info.get("timestep", 0)
+
         # Stage 1: skip unnecessary observations
-        if info.get("timestep", 0) < 250000:
+        if steps < 10000/12:
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
             else:
                 reward += 0.1
         
         # Stage 2: Approaching the needle
-        elif info.get("timestep", 0) < 500000:
+        elif info.get("timestep", 0) < 250000/12:
             # Penalize if the robot's joints are out of bounds
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
@@ -176,35 +178,44 @@ class NeedlePickTrainEnv(PsmEnv):
             reward += (1-distance) * 0.2
 
         # Stage 3: Grasp the needle
-        elif info.get("timestep", 0) < 750000:
+        elif info.get("timestep", 0) < 500000/12:
             # Penalize if the robot's joints are out of bounds
             if info.get("joint_valid", True) is False:
                 reward -= 0.1
             else:
                 reward += 0.1
 
-            # Reward for being close to the needle
+            # Reward for approaching the needle
             reward += (1-distance) * 0.2
             
-            # Reward for grasping the needle
-            if distance < 0.1 and desired_goal[2] > -0.14:
+            # Reward for grasping the needle 
+            if 0.91 < distance < 1.0:
                 reward += np.exp(-distance) 
+                if self.jaw_action < 0 and desired_goal[2] > -0.14:
+                    reward += np.exp(-distance)
+                else:
+                    reward -= np.exp(distance) * 0.001
+            else:
+                reward -= np.exp(distance) * 0.01
 
         # Stage 4: Rise the needle to the goal position
-        elif info.get("timestep", 0) < 1000000:
+        elif info.get("timestep", 0) < 1000000/12:
             
             # Reward for being close to the needle
             reward += (1 - distance) * 0.2
 
-            # Reward for grasping the needle
-            if distance < 0.1 and desired_goal[2] > -0.14:
-                reward += np.exp(-distance)
-            
-            # Reward for reaching the goal position
-            if distance < 0.1 :
-                reward += np.exp(-goal_dist)
+            # Reward for grasping the needle 
+            if 0.91 < distance < 1.0:
+                reward += np.exp(-distance) 
+                if self.jaw_action < 0 and desired_goal[2] > -0.14:
+                    reward += np.exp(-distance)
+                else:
+                    reward -= np.exp(distance) * 0.001
             else:
-                reward -= 0.1
+                reward -= np.exp(distance) * 0.01
+
+            # Reward for reaching the goal position
+            reward += np.exp(-goal_dist)
  
         return reward
 
@@ -225,11 +236,11 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward is the negative distance (the closer to the desired goal, the better)
         reward = 0
 
-        # Reward shaping: sparse reward
-        reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
+        # # Reward shaping: sparse reward
+        # reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
-        # # Reward shaping: less-sparse reward
-        # reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
+        # Reward shaping: less-sparse reward
+        reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
         # # Reward shaping: Curriculum reward, coming soon...
         # reward += self.curriculum_learn_reward(info, reward, distance, goal_dist)
@@ -242,6 +253,8 @@ class NeedlePickTrainEnv(PsmEnv):
         """
         # Clip the action to ensure it stays within valid bounds
         action = np.clip(action, self.action_space.low, self.action_space.high)
+
+        self.jaw_action = action[4]
 
         # Pass the action to the parent class for processing
         super()._set_action(action)

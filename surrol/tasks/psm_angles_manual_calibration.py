@@ -69,61 +69,79 @@ KEY_MAP = {
 ESC_KEY = 27
 
 def main():
-    env = PsmKeyboardControlEnv(render_mode='human')  # Use PSM env instead of ECM
+    env = PsmKeyboardControlEnv(render_mode='human')
     env.reset()
     print("✅ PSM keyboard control started.")
-    print("Controls: W/A/S/D = XY, Q/E = Z, J/K = yaw jaw. ESC to quit.")
+    print("Controls: W/A/S/D = XY, Q/E = Z, J/K = yaw jaw. O = open jaw, ESC = quit, R = record joint angles.")
+
+    # Initialize min/max angle lists (degrees)
+    min_angles = [None] * 6
+    max_angles = [None] * 6
 
     try:
         while True:
-            action = np.zeros(5)  # Ensure action is a 5D vector, corresponding to (XYZ movement + jaw control)
+            action = np.zeros(5)
             keys = p.getKeyboardEvents()
             action[4] = -1
+
+            record_angles = False
 
             for k in keys:
                 if keys[k] & p.KEY_IS_DOWN:
                     if k in KEY_MAP:
-                        action[:3] += KEY_MAP[k]  # Add to XYZ movement part of action
-                    elif k == ord('j'):  # Press 'j' to rotate the jaw
-                        action[3] = 1.0  
-                    elif k == ord('k'):  # Press 'k' to rotate the jaw
-                        action[3] = -1.0  
+                        action[:3] += KEY_MAP[k]
+                    elif k == ord('j'):
+                        action[3] = 1.0
+                    elif k == ord('k'):
+                        action[3] = -1.0
                     elif k == ord('o'):
-                        action[4] = 1  # Open jaw
-                    # elif k == ord('p'):
-                    #     action[4] = -1  # Close jaw
+                        action[4] = 1
+                    elif k == ord('r'):
+                        record_angles = True
                     elif k == ESC_KEY:
                         raise KeyboardInterrupt
 
             if np.any(action):
-                # Ensure action is within the allowed bounds
                 action = np.clip(action, env.action_space.low, env.action_space.high)
-
-                # Step the environment and get observation
-                obs, _, _, _ = env.step(action)
-                pos = env.psm1.get_current_position()[:3, 3]  # Get the current position of the robot's jaw
+                env.step(action)
+                pos = env.psm1.get_current_position()[:3, 3]
                 print("Tip Position:", np.round(pos, 4))
 
-                # Get needle position (like in my_needle_pick_env.py)
-                needle_pos, _ = p.getBasePositionAndOrientation(env.needle_id)
-                needle_pos = np.array(needle_pos)
-
-                # Compute distance between gripper tip and needle
-                distance = np.linalg.norm(pos - needle_pos)
-                print("Distance (gripper - needle):", np.round(distance, 4))
-
-                # Get joint positions from observation (similar to my_needle_pick_env.py)
                 robot_state = env._get_robot_state(idx=0)
                 position = robot_state[:3]
                 euler_angles = robot_state[3:6]
                 orientation_quat = p.getQuaternionFromEuler(euler_angles)
                 psm_joints_angle = env.psm1.inverse_kinematics((position, orientation_quat), env.psm1.EEF_LINK_INDEX)
-                print("PSM Joint Angles:", np.round(np.degrees(psm_joints_angle), 4))
+                psm_joints_angle_deg = np.degrees(psm_joints_angle)
+                print("PSM Joint Angles (deg):", np.round(psm_joints_angle_deg, 4))
+
+            # Record joint angles if 'r' is pressed
+            if record_angles:
+                robot_state = env._get_robot_state(idx=0)
+                position = robot_state[:3]
+                euler_angles = robot_state[3:6]
+                orientation_quat = p.getQuaternionFromEuler(euler_angles)
+                psm_joints_angle = env.psm1.inverse_kinematics((position, orientation_quat), env.psm1.EEF_LINK_INDEX)
+                psm_joints_angle_deg = np.degrees(psm_joints_angle)
+                for i in range(6):
+                    angle = psm_joints_angle_deg[i]
+                    if min_angles[i] is None or angle < min_angles[i]:
+                        min_angles[i] = angle
+                    if max_angles[i] is None or angle > max_angles[i]:
+                        max_angles[i] = angle
+                print("Updated min angles (deg):", [round(a, 2) if a is not None else None for a in min_angles])
+                print("Updated max angles (deg):", [round(a, 2) if a is not None else None for a in max_angles])
+                print("Copy these into your TOOL_JOINT_LIMIT dictionary when done.")
 
             time.sleep(0.05)
 
     except KeyboardInterrupt:
         print("🔚 Exiting.")
+        print("Final min angles (deg):", [round(a, 2) if a is not None else None for a in min_angles])
+        print("Final max angles (deg):", [round(a, 2) if a is not None else None for a in max_angles])
+        print("Paste these values into your TOOL_JOINT_LIMIT dictionary:")
+        print("'lower': np.deg2rad([{}]),".format(", ".join(str(round(a, 2)) if a is not None else "None" for a in min_angles)))
+        print("'upper': np.deg2rad([{}]),".format(", ".join(str(round(a, 2)) if a is not None else "None" for a in max_angles)))
     finally:
         env.close()
         print("✅ Environment closed.")

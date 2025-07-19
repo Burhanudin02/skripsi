@@ -105,4 +105,16 @@ if __name__ == '__main__':
 #needle_pick_ppo_gpu_68 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_55 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_69 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_68 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_70 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_69 + 1.000.000 timesteps)    --> seems still try to learn
-
+#needle_pick_ppo_gpu_71 --> n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2 (using curriculum learning reward shaping, 1.000.000 timesteps)     --> */ false logic, trained too long at Stage 1
+#needle_pick_ppo_gpu_72 --> n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_71 + 1.000.000 timesteps)         relative_timesteps = timesteps / num_of_parallel_envs
+#needle_pick_ppo_gpu_73 --> n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_72 + 1.000.000 timesteps)         forget to set relative_timesteps = timesteps / num_of_parallel_envs
+#needle_pick_ppo_gpu_74 --> n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_73 + 1.000.000 timesteps)         relative_timesteps only exceeds 66.666 when using 15 parallel environments
+#needle_pick_ppo_gpu_75 --> n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_74 + 1.000.000 timesteps)         training process never achieved Stage 2 /*
+#needle_pick_ppo_gpu_76 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (using ajusted stage 1 curricullum learning reward shaping, +1M ts)
+#needle_pick_ppo_gpu_77 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_76 + 1.000.000 timesteps)         
+#needle_pick_ppo_gpu_78 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_77 + 1.000.000 timesteps)         
+#needle_pick_ppo_gpu_79 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_78 + 1.000.000 timesteps)         
+#needle_pick_ppo_gpu_80 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_79 + 1.000.000 timesteps)      
+#needle_pick_ppo_gpu_81 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_70 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_82 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_81 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_83 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.1, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_82 + 1.000.000 timesteps)
