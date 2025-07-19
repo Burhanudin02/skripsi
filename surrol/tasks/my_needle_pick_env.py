@@ -231,14 +231,14 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward is the negative distance (the closer to the desired goal, the better)
         reward = 0
 
-#         # Reward shaping: sparse reward
-#         reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
+        # Reward shaping: sparse reward
+        reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
         # # Reward shaping: less-sparse reward
         # reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
-        # Reward shaping: Curriculum reward, coming soon...
-        reward += self.curriculum_learn_reward(info, reward, desired_goal, distance, goal_dist)
+#         # Reward shaping: Curriculum reward, coming soon...
+#         reward += self.curriculum_learn_reward(info, reward, desired_goal, distance, goal_dist)
         
         return reward
 
