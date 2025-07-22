@@ -136,13 +136,16 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Reward shaping: less-sparse reward
         if distance < 3.0 :
-            reward += (1 - distance) * 0.05
+            reward += (3 - distance) * 0.05
 
         elif distance < 1.5 :
-            reward += (1 - distance) * 0.2
+            reward += (1.5 - distance) * 0.2
 
-        elif distance < 0.96:
+        elif 0.8 < distance < 0.96:
             reward += (1 - distance) * 0.5  # Bonus if the gripper is close to the desired position
+
+        elif distance < 0.5:
+            reward -= distance * 0.001
 
         if goal_dist < 0.5 and distance_to_goal < 2.0:
             reward += (1 - goal_dist) * 0.05
@@ -155,7 +158,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
         return reward
     
-    def curriculum_learn_reward(self, info, reward, desired_goal, distance, goal_dist):
+    def curriculum_learn_reward(self, info, reward, distance, acheved_goal, goal_dist):
         
         steps = info.get("timestep", 0)
 
@@ -191,7 +194,7 @@ class NeedlePickTrainEnv(PsmEnv):
             # Reward for grasping the needle 
             if 0.91 < distance < 1.0:
                 reward += np.exp(-distance) 
-                if self.jaw_action < 0 and desired_goal[2] > -0.14:
+                if self.jaw_action < 0 and acheved_goal[2] > -0.14:
                     reward += np.exp(-distance)
                 else:
                     reward -= np.exp(distance) * 0.001
@@ -207,7 +210,7 @@ class NeedlePickTrainEnv(PsmEnv):
             # Reward for grasping the needle 
             if 0.91 < distance < 1.0:
                 reward += np.exp(-distance) 
-                if self.jaw_action < 0 and desired_goal[2] > -0.14:
+                if self.jaw_action < 0 and acheved_goal[2] > -0.14:
                     reward += np.exp(-distance)
                 else:
                     reward -= np.exp(distance) * 0.001
@@ -239,11 +242,11 @@ class NeedlePickTrainEnv(PsmEnv):
         # # Reward shaping: sparse reward
         # reward += self.sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
-        # Reward shaping: less-sparse reward
-        reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
+        # # Reward shaping: less-sparse reward
+        # reward += self.less_sparse_reward_shape(reward, distance, goal_dist, distance_to_goal)
 
-        # # Reward shaping: Curriculum reward, coming soon...
-        # reward += self.curriculum_learn_reward(info, reward, distance, goal_dist)
+        # Reward shaping: Curriculum reward, coming soon...
+        reward += self.curriculum_learn_reward(info, reward, distance, achieved_goal, goal_dist)
         
         return reward
 
