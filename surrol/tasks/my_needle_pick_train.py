@@ -17,42 +17,56 @@ if __name__ == '__main__':
 
     # Initialize PPO model with CPU
 #     model = PPO('MlpPolicy', env, verbose=1, device='cpu', n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2, tensorboard_log=log_dir)
-    model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_70"
-    model = PPO.load(model_path, env, device='cpu')
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_70"
+#     model = PPO.load(model_path, env, device='cpu')
 
-    # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=1000000, progress_bar=True)
+#     # Train the model and use TensorBoard callback
+#     model.learn(total_timesteps=1000000, progress_bar=True)
 
-    # Save the trained model
-    model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_81")
+#     # Save the trained model
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_91")
 
-    # addition: otw 2 jt
-    model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_81"
-    model = PPO.load(model_path, env, device='cpu')
+#     # addition: otw 2 jt
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_91"
+#     model = PPO.load(model_path, env, device='cpu')
 
-    model.learn(total_timesteps=1000000, progress_bar=True)
-    model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_82")
+#     model.learn(total_timesteps=1000000, progress_bar=True)
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_92")
 
-    # addition: otw 3 jt
-    model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_82"
-    model = PPO.load(model_path, env, device='cpu')
+#     # addition: otw 3 jt
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_92"
+#     model = PPO.load(model_path, env, device='cpu')
 
-    model.learn(total_timesteps=1000000, progress_bar=True)
-    model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_83")
+#     model.learn(total_timesteps=1000000, progress_bar=True)
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_93")
 
 #     # addition: otw 4 jt
-#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_78"
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_93"
 #     model = PPO.load(model_path, env, device='cpu')
 
 #     model.learn(total_timesteps=1000000, progress_bar=True)
-#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_79")
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_94")
 
-#     # addition: otw 5 jt
-#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_79"
+    # addition: otw 5 jt
+    model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_94"
+    model = PPO.load(model_path, env, device='cpu')
+
+    model.learn(total_timesteps=1000000, progress_bar=True)
+    model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_95")
+
+#     # addition: otw 6 jt
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_88"
 #     model = PPO.load(model_path, env, device='cpu')
 
 #     model.learn(total_timesteps=1000000, progress_bar=True)
-#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_80")
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_89")
+
+#     # addition: otw 7 jt
+#     model_path = "/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_89"
+#     model = PPO.load(model_path, env, device='cpu')
+
+#     model.learn(total_timesteps=1000000, progress_bar=True)
+#     model.save("/data/skripsi/surrol/tasks/models/needle_pick_ppo_gpu_90")
 
     # If you want to load TensorBoard logs and view them later, open the terminal and run:
     # tensorboard --logdir /home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/logs
