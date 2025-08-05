@@ -1,21 +1,32 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
-from my_needle_pick_env import NeedlePickTrainEnv  # Your environment
+from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your environment
+from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
+import torch
 
 def make_env():
-    return NeedlePickTrainEnv(render_mode=None)
+    # return NeedlePickTrainEnvOld(render_mode='human')
+    return NeedlePickTrainEnv(render_mode="human", reward_mode="sparse")
 
 if __name__ == '__main__':
-    num_envs = 12  # Adjust the number of parallel environments you want
+    num_envs = 1  # Adjust the number of parallel environments you want
 
     # Create parallel environments
     env = SubprocVecEnv([make_env for _ in range(num_envs)])
 
     # Create a directory to save the TensorBoard logs
-    log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/logs"
+    log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/logs"
 
     # Initialize PPO model with CPU
-    model = PPO('MlpPolicy', env, verbose=1, device='cpu', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
+    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
+    
+    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=1024, 
+                batch_size=256, learning_rate=3e-4, ent_coef=0.01, clip_range=0.2, 
+                policy_kwargs=dict(
+                    net_arch=[dict(pi=[256, 256], vf=[256, 256])],  # arsitektur pi dan vf
+                    activation_fn=torch.nn.Tanh                     # fungsi aktivasi stabil
+                ))
+    
     # model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_9"
     # model = PPO.load(model_path, env, device='cpu')
 
@@ -23,14 +34,14 @@ if __name__ == '__main__':
     model.learn(total_timesteps=1000000, progress_bar=True)
 
     # Save the trained model
-    model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_15")
+    # model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/needle_pick_ppo_gpu_3")
 
-    # addition: otw 2 jt
-    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_15"
-    model = PPO.load(model_path, env, device='cpu')
+    # # addition: otw 2 jt
+    # model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_15"
+    # model = PPO.load(model_path, env, device='cpu')
 
-    model.learn(total_timesteps=1000000, progress_bar=True)
-    model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_16")
+    # model.learn(total_timesteps=1000000, progress_bar=True)
+    # model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_16")
 
     # If you want to load TensorBoard logs and view them later, open the terminal and run:
     # tensorboard --logdir /home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/logs
@@ -129,3 +140,11 @@ if __name__ == '__main__':
 #needle_pick_ppo_gpu_92 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_91 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_93 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_92 + 1.000.000 timesteps)
 #needle_pick_ppo_gpu_94 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_93 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_95 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_94 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_94 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (using adjusted distance threshold less-sparse reward shaping, +1M)
+#needle_pick_ppo_gpu_95 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_94 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_96 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_95 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_97 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_96 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_98 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_97 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_99 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_98 + 1.000.000 timesteps)
+#needle_pick_ppo_gpu_100 --> n_steps=2048, batch_size=64, learning_rate=3e-4, ent_coef=0.02, clip_range=0.2 (transfer learn from needle_pick_ppo_gpu_99 + 1.000.000 timesteps)

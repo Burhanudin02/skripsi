@@ -1,8 +1,8 @@
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
-from my_needle_pick_env import NeedlePickTrainEnv  # Use relative import if this file is in the same package
-
+from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Use relative import if this file is in the same package
+from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 
 def evaluate_model(model_path, num_episodes=10):
     """
@@ -10,7 +10,8 @@ def evaluate_model(model_path, num_episodes=10):
     """
     # Create the environment
     def make_env():
-        return NeedlePickTrainEnv(render_mode='human')
+        # return NeedlePickTrainEnv(render_mode='human')
+        return NeedlePickTrainEnv(render_mode='human', reward_mode="sparse")
 
     # Create a vectorized environment for evaluation
     env = DummyVecEnv([make_env])
@@ -48,7 +49,7 @@ def evaluate_model(model_path, num_episodes=10):
 
 if __name__ == "__main__":
     # Define the path where the trained model is saved
-    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_94"  # Update this path to your model's location
+    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/needle_pick_ppo_gpu_2"  # Update this path to your model's location
     
     # Evaluate the trained model for 3 episodes
     evaluate_model(model_path, num_episodes=3)
