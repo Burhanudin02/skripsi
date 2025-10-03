@@ -4,45 +4,66 @@ import pybullet as p
 from surrol.tasks.psm_env import PsmEnv  # Inherit PsmEnv properly
 import os
 from surrol.const import ASSET_DIR_PATH  # gives you asset path
+from surrol.utils.pybullet_utils import get_link_pose 
 
-class PsmKeyboardControlEnv(PsmEnv):  # Inherit from PsmEnv correctly
+class PsmKeyboardControlEnv(PsmEnv):
     ACTION_MODE = 'yaw'
-    QPOS_PSM = (0, 0, 0.10, 0, 0, 0)  # Initial joint position for PSM
-    WORKSPACE_LIMITS = ((-0.5, 0.5), (-0.4, 0.4), (0.05, 0.05))
+    QPOS_PSM = (0, 0, 0.10, 0, 0, 0)
+    
+    # --- CHANGE 1: Set SCALING to 5.0 to match the training env ---
+    SCALING = 5.0 
+
+    # Note: WORKSPACE_LIMITS are scaled automatically by the parent PsmEnv class,
+    # so we don't need to define them here.
 
     def __init__(self, render_mode=None):
         self._step = 0
-        super().__init__(render_mode)  # Calls PsmEnv's constructor and _env_setup()
+        self.needle_id = -1
+        self.tray_id = -1
+        super().__init__(render_mode)
 
     def _env_setup(self):
         """Set up the PSM environment."""
-        super()._env_setup()  # Call the parent class's setup
+        super()._env_setup()
         
-        self.psm1.reset_joint(self.QPOS_PSM)
+        # Reset the robot using the same IK method as the training env for consistency
+        workspace_limits = self.workspace_limits1
+        pos = (
+            workspace_limits[0][0],
+            workspace_limits[1][1],
+            (workspace_limits[2][1] + workspace_limits[2][0]) / 2
+        )
+        orn = (0.5, 0.5, -0.5, -0.5)
+        joint_positions = self.psm1.inverse_kinematics((pos, orn), self.psm1.EEF_LINK_INDEX)
+        self.psm1.reset_joint(joint_positions)
         self.block_gripper = False
 
         # 1. Load tray pad
         tray_path = os.path.join(ASSET_DIR_PATH, 'tray/tray_pad.urdf')
-        tray_position = [0.5, 0.0, 0.675]  # Same as used in needle_pick.py
+        # Define the UN-SCALED position
+        tray_position_unscaled = np.array([0.55, 0.0, 0.6751])
         tray_orientation = p.getQuaternionFromEuler([0, 0, 0])
     
         self.tray_id = p.loadURDF(
             tray_path,
-            basePosition=tray_position,
-            baseOrientation=tray_orientation,
+            # --- CHANGE 2: Multiply the position by self.SCALING ---
+            basePosition = tray_position_unscaled * self.SCALING,
+            baseOrientation = tray_orientation,
             useFixedBase=True,
             globalScaling=self.SCALING
         )
 
         # 2. Load the needle on top of the tray
         needle_path = os.path.join(ASSET_DIR_PATH, 'needle/needle_40mm.urdf')
-        needle_position = [0.5, 0.0, 0.68]  # Slightly above tray Z
-        needle_orientation = p.getQuaternionFromEuler([0, 0, 0])
+        # Define the UN-SCALED position
+        needle_position_unscaled = np.array([0.55, 0.0, 0.685]) # Adjusted Z to be on tray
+        needle_orientation = p.getQuaternionFromEuler([0, 0, np.pi / 2]) # Example orientation
     
         self.needle_id = p.loadURDF(
             needle_path,
-            basePosition=needle_position,
-            baseOrientation=needle_orientation,
+            # --- CHANGE 3: Multiply the position by self.SCALING ---
+            basePosition = needle_position_unscaled * self.SCALING,
+            baseOrientation = needle_orientation,
             useFixedBase=False,
             globalScaling=self.SCALING
         )
@@ -56,7 +77,7 @@ class PsmKeyboardControlEnv(PsmEnv):  # Inherit from PsmEnv correctly
     def _is_success(self, achieved_goal, desired_goal):
         return 0.0
 
-
+# ... (The rest of your main() function can remain the same) ...
 # --- Key mappings for XYZ control ---
 KEY_MAP = {
     ord('s'): np.array([0.1, 0.0, 0.0]),
@@ -104,16 +125,34 @@ def main():
             if np.any(action):
                 action = np.clip(action, env.action_space.low, env.action_space.high)
                 env.step(action)
-                pos = env.psm1.get_current_position()[:3, 3]
-                print("Tip Position:", np.round(pos, 4))
+                
+                # ------ Get the position of the VISUAL gripper tip (Link 8)------
+                gripper_tip_pos, _ = get_link_pose(env.psm1.body, env.psm1.TIP_LINK_INDEX)
+                
+                # Get needle position (using link index 1, same as in my_needle_pick_env.py)
+                needle_pos, _ = get_link_pose(env.needle_id, 1)
 
+                # ------ Calculate the Euclidean distance IN THE SCALED WORLD ------
+                distance_in_scaled_world = np.linalg.norm(np.array(gripper_tip_pos) - np.array(needle_pos))
+                
+                # ------ Convert to "real world" distance by dividing by the scale ------
+                real_world_distance = distance_in_scaled_world / env.SCALING
+
+                print(f"Gripper TIP to Needle Distance (Real World): {real_world_distance:.4f}")
+                # -------------------------------------------------------------------------
+
+
+                # Existing print statements
                 robot_state = env._get_robot_state(idx=0)
-                position = robot_state[:3]
+                eef_pos = robot_state[:3] # This is the EEF position
+                print("EEF Position:", np.round(eef_pos, 4))
+                
                 euler_angles = robot_state[3:6]
                 orientation_quat = p.getQuaternionFromEuler(euler_angles)
-                psm_joints_angle = env.psm1.inverse_kinematics((position, orientation_quat), env.psm1.EEF_LINK_INDEX)
+                psm_joints_angle = env.psm1.inverse_kinematics((eef_pos, orientation_quat), env.psm1.EEF_LINK_INDEX)
                 psm_joints_angle_deg = np.degrees(psm_joints_angle)
                 print("PSM Joint Angles (deg):", np.round(psm_joints_angle_deg, 4))
+
 
             # Record joint angles if 'r' is pressed
             if record_angles:

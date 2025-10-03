@@ -115,6 +115,9 @@ class NeedlePick(PsmEnv):
         action = np.zeros(5)
         action[4] = -0.5
         for i, waypoint in enumerate(self._waypoints):
+            
+            print("waypoint[{}]: {}".format(i, waypoint))
+
             if waypoint is None:
                 continue
             delta_pos = (waypoint[:3] - obs['observation'][:3]) / 0.01 / self.SCALING

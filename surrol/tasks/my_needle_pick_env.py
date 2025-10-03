@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
 import os
-from surrol.utils.pybullet_utils import get_link_pose, step
+from surrol.utils.pybullet_utils import get_link_pose, step, wrap_angle
 from surrol.const import ASSET_DIR_PATH
 from surrol.tasks.psm_env import PsmEnv
 from gym import spaces
@@ -17,22 +17,23 @@ class NeedlePickTrainEnv(PsmEnv):
     SCALING = 5.0
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
 
-    TOOL_JOINT_LIMIT = {
-        'lower': np.deg2rad([-6.04, -32.26, 8.5, -172.45, -44.78, -43.25]),
-        'upper': np.deg2rad([44.03, 9.58, 12.74, 164.87, 48.2, 43.47]),
-    }
+    # TOOL_JOINT_LIMIT = {   # The values are manually observed
+    #     'lower': np.deg2rad([-6.04, -32.26, 8.5, -172.45, -44.78, -43.25]),
+    #     'upper': np.deg2rad([44.03, 9.58, 12.74, 164.87, 48.2, 43.47]),
+    # }
 
     def __init__(self, render_mode=None, reward_mode="sparse"):
         self.render_mode = render_mode
         self.reward_mode = reward_mode
+        self.was_gripping = False
         self.enable_logging = False
         
         super().__init__(render_mode=render_mode)
 
         # Action: dx, dy, dz, d_yaw, gripper_open/close
         self.action_space = spaces.Box(
-            low=np.array([-5e-14, -5e-14, -5e-14, -5e-14, -1.0]),
-            high=np.array([5e-14, 5e-14, 5e-14, 5e-14, 1.0]),
+            low=np.array([-5e-2, -5e-2, -5e-2, -5e-2, -1.0]),
+            high=np.array([5e-2, 5e-2, 5e-2, 5e-2, 1.0]),
             dtype=np.float64
         )
 
@@ -102,8 +103,14 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def _get_obs(self):
         robot_state = self._get_robot_state(idx=0)
-        object_pos, _ = get_link_pose(self.obj_id, self.obj_link1)
+        object_pos, object_orn_quat = get_link_pose(self.obj_id, self.obj_link1)
         goal_pos = self.goal
+
+        object_euler = p.getEulerFromQuaternion(object_orn_quat)
+        needle_yaw = object_euler[2]
+        robot_yaw = robot_state[5]
+        self.current_needle_yaw = needle_yaw
+        self.current_robot_yaw = robot_yaw
 
         return {
             "observation": np.concatenate([robot_state, object_pos, goal_pos]).astype(np.float32),
@@ -111,44 +118,74 @@ class NeedlePickTrainEnv(PsmEnv):
             "desired_goal": np.array(goal_pos, dtype=np.float32)
         }
 
-    def compute_reward(self, achieved_goal, desired_goal, info):
-        # Jarak gripper ke needle (target)
-        distance = np.linalg.norm(achieved_goal - desired_goal)
+    def compute_reward(self, position, achieved_goal, desired_goal, info):
+        # # Jarak gripper ke needle (target)
+        distance = np.linalg.norm(position - achieved_goal)
+        distance = distance/5.0  # Normalize distance by scaling factor
         print(f"Distance to needle: {distance}")
 
+        # Orientation difference (yaw) between gripper and needle
+        raw_yaw_diff = self.current_robot_yaw - self.current_needle_yaw
+        wrapped_yaw_error = wrap_angle(raw_yaw_diff)
+        abs_yaw_error = np.abs(wrapped_yaw_error)
+        print(f"Yaw error (rad): {abs_yaw_error}, (deg): {np.rad2deg(abs_yaw_error)}")
+
+        # Grasp logic
+        is_gripping_now = info.get("is_gripping", False)
+        just_grasped = is_gripping_now and not self.was_gripping
+
         # Jarak needle ke goal akhir
-        needle_to_goal = np.linalg.norm(desired_goal - self.goal)
+        needle_to_goal = np.linalg.norm(achieved_goal - desired_goal)
         print(f"Needle to goal: {needle_to_goal}")
 
+        # Check for different reward modes
         if self.reward_mode == "less_sparse":
-            return self.less_sparse_reward_shape(-distance, distance, needle_to_goal)
+            return self.less_sparse_reward_shape(-distance, distance, 
+                                                 abs_yaw_error, just_grasped, 
+                                                 is_gripping_now, needle_to_goal)
         elif self.reward_mode == "curriculum":
             return self.curriculum_learn_reward(info, -distance, distance, achieved_goal, needle_to_goal)
 
-        # Default sparse
-        reward = -distance
-        if distance < 0.1:
-            reward += 2.0
-        if needle_to_goal < 0.1:
-            reward += 10.0
-        if not info.get("joint_valid", True):
-            reward -= 0.1
+        # Default: sparse
+        reward = (1-distance) * 0.01
 
-        print(f"Reward: {reward})")
+        if just_grasped:
+            print("🎉 Just Grasped! Applying Bonus.")
+            reward += 1.0  # Large, one-time bonus for success
+
+        if is_gripping_now:
+            reward += (1 - needle_to_goal) * 0.01
+        
+        print(f"Reward: {reward}")
         return reward
 
+    def less_sparse_reward_shape(self, reward, distance, 
+                                 abs_yaw_error, just_grasped, 
+                                 is_gripping_now, needle_to_goal):
+        reward = reward
 
-    def less_sparse_reward_shape(self, reward, distance, goal_dist):
-        reward += (3 - distance) * 0.05 if distance < 3.0 else 0
-        if distance < 0.5:
-            reward -= distance * 0.001
-        if goal_dist < 0.5:
-            reward += (1 - goal_dist) * 0.05
-        if goal_dist < 0.1:
-            reward += (1 - goal_dist) * 0.5
+        if distance < 0.07:
+            reward += (1 - abs_yaw_error) * 0.01
+            if just_grasped:
+                print("🎉 Just Grasped! Applying Bonus.")
+                reward += 1.0  # Large, one-time bonus for success
+
+            if not is_gripping_now:
+                # --- STAGE 1: Approach the needle ---
+                # Reward for getting closer to the needle
+                reward = -distance 
+
+            else:
+                # --- STAGE 2: Move the needle to the goal ---
+                # Agent is now holding the needle. Reward for moving needle to goal.
+                reward += (1 - needle_to_goal) * 0.1
+                
+                # Constant "holding" bonus to incentivize not dropping the needle
+                reward += 0.000001
+        
         return reward
 
-    def curriculum_learn_reward(self, info, reward, distance, achieved_goal, goal_dist):
+    def curriculum_learn_reward(self, info, reward, distance, achieved_goal, needle_to_goal):
         steps = info.get("timestep", 0)
         jaw_close = self.jaw_action < 0
 
@@ -173,7 +210,7 @@ class NeedlePickTrainEnv(PsmEnv):
                     reward += np.exp(-distance)
                 else:
                     reward -= np.exp(distance) * 0.001
-            reward += np.exp(-goal_dist)
+            reward += np.exp(-needle_to_goal)
 
         return reward
 
@@ -185,6 +222,7 @@ class NeedlePickTrainEnv(PsmEnv):
     def reset(self):
         print("Reset...")
         self.timestep = 0
+        self.was_gripping = False
         workspace_limits = self.workspace_limits1
         pos = (
             workspace_limits[0][0],
@@ -200,45 +238,38 @@ class NeedlePickTrainEnv(PsmEnv):
         self.timestep += 1
         self._set_action(action)
         step(1)
+        super()._step_callback()
 
         self.needle_out_of_bounds = self.check_needle_out_of_bounds()
         if self.needle_out_of_bounds:
             self.realign_needle()
 
         obs = self._get_obs()
-        # achieved = obs["achieved_goal"]
-        # desired = obs["desired_goal"]
-
-        achieved = obs["observation"][:3] # get the position of the robot
-        desired = obs["achieved_goal"]
+        achieved = obs["achieved_goal"]
+        desired = obs["desired_goal"]
 
         # Joint valid check
-        robot_state = self._get_robot_state(idx=0)
+        robot_state = obs["observation"][:7] # Get the robot state from the observation
         position = robot_state[:3]
         quat = robot_state[3:7]  # ensure quaternion is returned from _get_robot_state
-        joint_angles = self.psm1.inverse_kinematics((position, quat), self.psm1.EEF_LINK_INDEX)
-
-        joint_valid = all(
-            self.TOOL_JOINT_LIMIT['lower'][i] <= joint_angles[i] <= self.TOOL_JOINT_LIMIT['upper'][i]
-            for i in range(len(joint_angles))
-        )
+        # joint_angles = self.psm1.inverse_kinematics((position, quat), self.psm1.EEF_LINK_INDEX)
 
         info = {
-            "joint_valid": joint_valid,
             "timestep": self.timestep,
-            "is_gripping": self._activated == 0,
+            "is_gripping": self._contact_constraint is not None,
             "needle_out_of_bounds": self.needle_out_of_bounds
         }
 
-        reward = self.compute_reward(achieved, desired, info)
-        done = self._is_done(desired, obs["desired_goal"])
+        reward = self.compute_reward(position, achieved, desired, info)
+        done = self._is_done(achieved, desired)
+
+        self.was_gripping = self._contact_constraint is not None
 
         return obs, reward, done, info
 
     def _is_done(self, achieved_goal, desired_goal):
-        dist_gripper_to_needle = np.linalg.norm(achieved_goal - desired_goal)
-        dist_needle_to_goal = np.linalg.norm(desired_goal - self.goal)
-        return dist_gripper_to_needle < 0.1 and dist_needle_to_goal < 0.1
+        dist = np.linalg.norm(achieved_goal - desired_goal)
+        return dist < 0.1
 
     def check_needle_out_of_bounds(self):
         x, y, _ = get_link_pose(self.obj_id, self.obj_link1)[0]
@@ -258,3 +289,4 @@ class NeedlePickTrainEnv(PsmEnv):
     def render(self, mode=None):
         if mode == 'human':
             return np.array([])
+

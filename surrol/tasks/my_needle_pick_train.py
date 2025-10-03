@@ -2,11 +2,11 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your environment
 from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
-import torch
+import torch, os, re
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode="human", reward_mode="sparse")
+    return NeedlePickTrainEnv(render_mode='human', reward_mode="less_sparse")
 
 if __name__ == '__main__':
     num_envs = 1  # Adjust the number of parallel environments you want
@@ -17,34 +17,61 @@ if __name__ == '__main__':
     # Create a directory to save the TensorBoard logs
     log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/logs"
 
-    # Initialize PPO model with CPU
-    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    
-    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=1024, 
-                batch_size=256, learning_rate=3e-4, ent_coef=0.01, clip_range=0.2, 
-                policy_kwargs=dict(
-                    net_arch=[dict(pi=[256, 256], vf=[256, 256])],  # arsitektur pi dan vf
-                    activation_fn=torch.nn.Tanh                     # fungsi aktivasi stabil
-                ))
-    
-    # model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_9"
-    # model = PPO.load(model_path, env, device='cpu')
+    base_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/"
+    prefix = "needle_pick_ppo_gpu_"
 
+    # Cari semua file/folder dengan prefix
+    all_files = os.listdir(base_path)
+    
+    # Filter hanya yang sesuai pola prefix
+    pattern = re.compile(rf"^{prefix}(\d+)$")
+    indices = []
+    
+    for f in all_files:
+        fname, _ = os.path.splitext(f)
+        match = pattern.match(fname)
+        print(f, match)
+        if match:
+            indices.append(int(match.group(1)))
+    
+    if indices:
+        last_idx = max(indices)
+        print(f"Indeks terakhir: {last_idx}")
+    else:
+        raise FileNotFoundError(f"Tidak ada file dengan prefix {prefix} di {base_path}")
+      
+    # First initialization of PPO model parameter
+
+    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
+    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
+                batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
+                n_epochs=3, tensorboard_log=log_dir
+                )
+    
     # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=1000000, progress_bar=True)
+    model.learn(total_timesteps=100000, progress_bar=True)
 
     # Save the trained model
-    # model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/needle_pick_ppo_gpu_3")
+    model.save(f"{base_path}{prefix}{last_idx+1}")
 
-    # # addition: otw 2 jt
-    # model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_15"
-    # model = PPO.load(model_path, env, device='cpu')
+    ## Retrain the initialized model
+    # start_idx = 9   # model terakhir yang ada
+    # end_idx = 12    # model terakhir yang akan disimpan
 
-    # model.learn(total_timesteps=1000000, progress_bar=True)
-    # model.save("/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/models/needle_pick_ppo_gpu_16")
+    # for i in range(start_idx, end_idx):
+    #     # Load model sebelumnya
+    #     model_path = f"{base_path}{prefix}{i}"
+    #     model = PPO.load(model_path, env, device='cpu')
+    
+    #     # Training
+    #     model.learn(total_timesteps=100000, progress_bar=True)
+    
+    #     # Save dengan nomor urut berikutnya
+    #     save_path = f"{base_path}{prefix}{i+1}"
+    #     model.save(save_path)
+    
+    #     print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
 
-    # If you want to load TensorBoard logs and view them later, open the terminal and run:
-    # tensorboard --logdir /home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/logs
 
 #needle_pick_ppo_gpu --> n_steps=1024, batch_size=32, learning_rate=1e-14, clip_range=0.1
 #needle_pick_ppo_gpu_2 --> n_steps=2048, batch_size=32, learning_rate=1e-5, clip_range=0.1
