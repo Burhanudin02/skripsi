@@ -22,9 +22,10 @@ class NeedlePickTrainEnv(PsmEnv):
     #     'upper': np.deg2rad([44.03, 9.58, 12.74, 164.87, 48.2, 43.47]),
     # }
 
-    def __init__(self, render_mode=None, reward_mode="sparse"):
+    def __init__(self, render_mode=None, reward_mode="sparse", num_envs=1):
         self.render_mode = render_mode
         self.reward_mode = reward_mode
+        self.num_envs = num_envs
         self.was_gripping = False
         self.enable_logging = False
         
@@ -144,7 +145,9 @@ class NeedlePickTrainEnv(PsmEnv):
                                                  abs_yaw_error, just_grasped, 
                                                  is_gripping_now, needle_to_goal)
         elif self.reward_mode == "curriculum":
-            return self.curriculum_learn_reward(info, -distance, distance, achieved_goal, needle_to_goal)
+            return self.curriculum_learn_reward(info, -distance, distance, 
+                                                abs_yaw_error, just_grasped, 
+                                                 is_gripping_now, needle_to_goal)
 
         # Default: sparse
         reward = (1-distance) * 0.01
@@ -185,32 +188,33 @@ class NeedlePickTrainEnv(PsmEnv):
         
         return reward
 
-    def curriculum_learn_reward(self, info, reward, distance, achieved_goal, needle_to_goal):
+    def curriculum_learn_reward(self, info, reward, distance, 
+                                abs_yaw_error, just_grasped, 
+                                is_gripping_now, needle_to_goal):
         steps = info.get("timestep", 0)
-        jaw_close = self.jaw_action < 0
+        num_envs = self.num_envs
+        reward = reward
+        
+        # Approaching needle
+        if steps < 100000 / num_envs:
+            reward = reward
+        
+        # Aligning orientation
+        elif steps < 250000 / num_envs:
+            reward += (1 - abs_yaw_error) * 0.01
+        
+        # Grasping 
+        elif steps < 500000 / num_envs:
+            if just_grasped:
+                print("🎉 Just Grasped! Applying Bonus.")
+                reward += 1.0  # Large, one-time bonus for success
+                if not is_gripping_now:
+                    reward -= 0.5 # Erase half of given bonus
 
-        if steps < 10000 / 12:
-            reward += 0.1 if info.get("joint_valid", True) else -0.1
-        elif steps < 250000 / 12:
-            reward += 0.1 if info.get("joint_valid", True) else -0.1
-            reward += (1 - distance) * 0.2
-        elif steps < 500000 / 12:
-            reward += (1 - distance) * 0.2
-            if 0.91 < distance < 1.0:
-                reward += np.exp(-distance)
-                if jaw_close and achieved_goal[2] > -0.14:
-                    reward += np.exp(-distance)
-                else:
-                    reward -= np.exp(distance) * 0.001
-        elif steps < 1000000 / 12:
-            reward += (1 - distance) * 0.2
-            if 0.91 < distance < 1.0:
-                reward += np.exp(-distance)
-                if jaw_close and achieved_goal[2] > -0.14:
-                    reward += np.exp(-distance)
-                else:
-                    reward -= np.exp(distance) * 0.001
-            reward += np.exp(-needle_to_goal)
+        # Go to final goal        
+        elif steps < 1000000 / num_envs:
+            if is_gripping_now:
+                reward += -needle_to_goal
 
         return reward
 

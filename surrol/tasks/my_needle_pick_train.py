@@ -4,12 +4,15 @@ from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your en
 from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 import torch, os, re
 
+# DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
+num_envs = 10
+
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode='human', reward_mode="less_sparse")
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="sparse", num_envs=num_envs)
 
 if __name__ == '__main__':
-    num_envs = 1  # Adjust the number of parallel environments you want
+    num_envs = num_envs  # Adjust the number of parallel environments you want
 
     # Create parallel environments
     env = SubprocVecEnv([make_env for _ in range(num_envs)])
