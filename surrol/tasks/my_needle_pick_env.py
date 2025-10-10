@@ -162,29 +162,29 @@ class NeedlePickTrainEnv(PsmEnv):
         print(f"Reward: {reward}")
         return reward
 
-    def less_sparse_reward_shape(self, reward, distance, 
+    def less_sparse_reward_shape(self, base_reward, distance, 
                                  abs_yaw_error, just_grasped, 
                                  is_gripping_now, needle_to_goal):
-        reward = reward
+        reward = base_reward * 0.1  # Scale down the base reward
 
-        if distance < 0.07:
-            reward += (1 - abs_yaw_error) * 0.01
+        if distance < 0.1:
+            reward += (1 - abs_yaw_error) * 0.1
             if just_grasped:
                 print("🎉 Just Grasped! Applying Bonus.")
                 reward += 1.0  # Large, one-time bonus for success
 
-            if not is_gripping_now:
-                # --- STAGE 1: Approach the needle ---
-                # Reward for getting closer to the needle
-                reward = -distance 
+                if not is_gripping_now:
+                    # --- STAGE 1: Approach the needle ---
+                    # Reward for getting closer to the needle
+                    reward = -distance * 0.1 
 
-            else:
+            if is_gripping_now:
                 # --- STAGE 2: Move the needle to the goal ---
                 # Agent is now holding the needle. Reward for moving needle to goal.
                 reward += (1 - needle_to_goal) * 0.1
                 
                 # Constant "holding" bonus to incentivize not dropping the needle
-                reward += 0.000001
+                reward += 0.01
         
         return reward
 

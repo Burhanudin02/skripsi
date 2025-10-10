@@ -9,7 +9,7 @@ num_envs = 10
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode=None, reward_mode="sparse", num_envs=num_envs)
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="less-sparse", num_envs=num_envs)
 
 if __name__ == '__main__':
     num_envs = num_envs  # Adjust the number of parallel environments you want
@@ -18,9 +18,9 @@ if __name__ == '__main__':
     env = SubprocVecEnv([make_env for _ in range(num_envs)])
 
     # Create a directory to save the TensorBoard logs
-    log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/logs"
+    log_dir = "/media/ataka/toshiba-burhan/skripsi/surrol/tasks/experiment/logs"
 
-    base_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/"
+    base_path = "/media/ataka/toshiba-burhan/skripsi/surrol/tasks/experiment/models/"
     prefix = "needle_pick_ppo_gpu_"
 
     # Cari semua file/folder dengan prefix
@@ -44,36 +44,40 @@ if __name__ == '__main__':
         raise FileNotFoundError(f"Tidak ada file dengan prefix {prefix} di {base_path}")
       
     # First initialization of PPO model parameter
-
-    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
-                batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
-                n_epochs=3, tensorboard_log=log_dir
-                )
+    
+    agent_index = 1     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 5
+    model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+    
+    ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
+    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
+    #             batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
+    #             n_epochs=3, tensorboard_log=log_dir
+    #             )
     
     # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=100000, progress_bar=True)
+    model.learn(total_timesteps=1000000, progress_bar=True)
 
     # Save the trained model
     model.save(f"{base_path}{prefix}{last_idx+1}")
 
-    ## Retrain the initialized model
-    # start_idx = 9   # model terakhir yang ada
-    # end_idx = 12    # model terakhir yang akan disimpan
+    # Retrain the initialized model
+    start_idx = last_idx+1   # model terakhir yang ada
+    end_idx = start_idx + jumlah_retrain    # model terakhir yang akan disimpan
 
-    # for i in range(start_idx, end_idx):
-    #     # Load model sebelumnya
-    #     model_path = f"{base_path}{prefix}{i}"
-    #     model = PPO.load(model_path, env, device='cpu')
+    for i in range(start_idx, end_idx):
+        # Load model sebelumnya
+        model_path = f"{base_path}{prefix}{i}"
+        model = PPO.load(model_path, env, device='cuda')
     
-    #     # Training
-    #     model.learn(total_timesteps=100000, progress_bar=True)
+        # Training
+        model.learn(total_timesteps=1000000, progress_bar=True)
     
-    #     # Save dengan nomor urut berikutnya
-    #     save_path = f"{base_path}{prefix}{i+1}"
-    #     model.save(save_path)
+        # Save dengan nomor urut berikutnya
+        save_path = f"{base_path}{prefix}{i+1}"
+        model.save(save_path)
     
-    #     print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
+        print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
 
 
 #needle_pick_ppo_gpu --> n_steps=1024, batch_size=32, learning_rate=1e-14, clip_range=0.1
