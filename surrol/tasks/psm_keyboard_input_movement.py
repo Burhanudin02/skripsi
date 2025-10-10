@@ -1,126 +1,120 @@
 import time
 import numpy as np
 import pybullet as p
-from surrol.tasks.psm_env import PsmEnv  # Inherit PsmEnv properly
+from surrol.tasks.psm_env import PsmEnv
 import os
-from surrol.const import ASSET_DIR_PATH  # gives you asset path
+from surrol.const import ASSET_DIR_PATH
+from surrol.utils.pybullet_utils import get_link_pose
 
-class PsmKeyboardControlEnv(PsmEnv):  # Inherit from PsmEnv correctly
+class PsmKeyboardControlEnv(PsmEnv):
     ACTION_MODE = 'yaw'
-    QPOS_PSM = (0, 0, 0.10, 0, 0, 0)  # Initial joint position for PSM
-    WORKSPACE_LIMITS = ((-0.5, 0.5), (-0.4, 0.4), (0.05, 0.05))
+    SCALING = 5.0 # Match the training environment
 
     def __init__(self, render_mode=None):
         self._step = 0
-        super().__init__(render_mode)  # Calls PsmEnv's constructor and _env_setup()
+        self.needle_id = -1
+        self.tray_id = -1
+        super().__init__(render_mode)
 
     def _env_setup(self):
         """Set up the PSM environment."""
-        super()._env_setup()  # Call the parent class's setup
+        super()._env_setup()
         
-        self.psm1.reset_joint(self.QPOS_PSM)
+        self.has_object = True  # Enable object interaction logic
         self.block_gripper = False
 
-        # 1. Load tray pad
+        # Reset the robot pose using IK for consistency with training
+        workspace_limits = self.workspace_limits1
+        pos = (workspace_limits[0][0], workspace_limits[1][1], (workspace_limits[2][1] + workspace_limits[2][0]) / 2)
+        orn = (0.5, 0.5, -0.5, -0.5)
+        joint_positions = self.psm1.inverse_kinematics((pos, orn), self.psm1.EEF_LINK_INDEX)
+        self.psm1.reset_joint(joint_positions)
+
+        # Load tray (scaling position and size)
         tray_path = os.path.join(ASSET_DIR_PATH, 'tray/tray_pad.urdf')
-        tray_position = [0.5, 0.0, 0.675]  # Same as used in needle_pick.py
-        tray_orientation = p.getQuaternionFromEuler([0, 0, 0])
-    
+        tray_position_unscaled = np.array([0.55, 0.0, 0.6751])
         self.tray_id = p.loadURDF(
             tray_path,
-            basePosition=tray_position,
-            baseOrientation=tray_orientation,
+            basePosition=tray_position_unscaled * self.SCALING,
+            baseOrientation=p.getQuaternionFromEuler([0, 0, 0]),
             useFixedBase=True,
             globalScaling=self.SCALING
         )
 
-        # 2. Load the needle on top of the tray
+        # Load needle (scaling position and size)
         needle_path = os.path.join(ASSET_DIR_PATH, 'needle/needle_40mm.urdf')
-        needle_position = [0.5, 0.0, 0.68]  # Slightly above tray Z
-        needle_orientation = p.getQuaternionFromEuler([0, 0, 0])
-    
+        needle_position_unscaled = np.array([0.55, 0.0, 0.685])
         self.needle_id = p.loadURDF(
             needle_path,
-            basePosition=needle_position,
-            baseOrientation=needle_orientation,
+            basePosition=needle_position_unscaled * self.SCALING,
+            baseOrientation=p.getQuaternionFromEuler([0, 0, np.pi / 2]),
             useFixedBase=False,
             globalScaling=self.SCALING
         )
 
+        # --- FIX: Set the object ID and the link index for the achieved_goal/grasping logic ---
+        self.obj_id = self.needle_id
+        self.obj_link1 = 1  # Set the link index to 1 (as in the original needle pick env)
+        # --------------------------------------------------------------------------------------
+
+    def _meet_contact_constraint_requirement(self) -> bool:
+        # Required for the parent class's grasping logic to work
+        return True
+
     def _sample_goal(self):
         return np.array([0., 0., 0.])
-
     def compute_reward(self, achieved_goal, desired_goal, info):
         return 0.0
-
     def _is_success(self, achieved_goal, desired_goal):
         return 0.0
 
-
-# --- Key mappings for XYZ control ---
+# --- Key map for arrow keys ---
 KEY_MAP = {
-    ord('s'): np.array([0.1, 0.0, 0.0]),
-    ord('w'): np.array([-0.1, 0.0, 0.0]),
-    ord('d'): np.array([0.0, 0.1, 0.0]),
-    ord('a'): np.array([0.0, -0.1, 0.0]),
-    ord('e'): np.array([0.0, 0.0, -10.0]),
-    ord('q'): np.array([0.0, 0.0, 10.0]),
+    p.B3G_DOWN_ARROW: np.array([0.1, 0.0, 0.0]),
+    p.B3G_UP_ARROW:   np.array([-0.1, 0.0, 0.0]),
+    p.B3G_RIGHT_ARROW:np.array([0.0, 0.1, 0.0]),
+    p.B3G_LEFT_ARROW: np.array([0.0, -0.1, 0.0]),
+    ord('e'):         np.array([0.0, 0.0, -10.0]),
+    ord('q'):         np.array([0.0, 0.0, 10.0]),
 }
 ESC_KEY = 27
 
 def main():
-    env = PsmKeyboardControlEnv(render_mode='human')  # Use PSM env instead of ECM
+    env = PsmKeyboardControlEnv(render_mode='human')
     env.reset()
     print("✅ PSM keyboard control started.")
-    print("Controls: W/A/S/D = XY, Q/E = Z, J/K = yaw jaw. ESC to quit.")
+    print("Controls: Arrow Keys=XY, Q/E=Z, J/K=yaw. O=Open Jaw, P=Close Jaw. ESC=quit.")
 
     try:
         while True:
-            action = np.zeros(5)  # Ensure action is a 5D vector, corresponding to (XYZ movement + jaw control)
+            action = np.zeros(5)
             keys = p.getKeyboardEvents()
-            action[4] = -1
+            action[4] = 1 # Default to jaw open
 
             for k in keys:
                 if keys[k] & p.KEY_IS_DOWN:
                     if k in KEY_MAP:
-                        action[:3] += KEY_MAP[k]  # Add to XYZ movement part of action
-                    elif k == ord('j'):  # Press 'j' to rotate the jaw
-                        action[3] = 1.0  
-                    elif k == ord('k'):  # Press 'k' to rotate the jaw
-                        action[3] = -1.0  
-                    elif k == ord('o'):
-                        action[4] = 1  # Open jaw
-                    # elif k == ord('p'):
-                    #     action[4] = -1  # Close jaw
-                    elif k == ESC_KEY:
-                        raise KeyboardInterrupt
+                        action[:3] += KEY_MAP[k]
+                    elif k == ord('j'): action[3] = 1.0
+                    elif k == ord('k'): action[3] = -1.0
+                    elif k == ord('o'): action[4] = 1
+                    elif k == ord('p'): action[4] = -1 # Send close jaw command
+                    elif k == ESC_KEY: raise KeyboardInterrupt
 
-            if np.any(action):
-                # Ensure action is within the allowed bounds
-                action = np.clip(action, env.action_space.low, env.action_space.high)
+            env.step(action)
 
-                # Step the environment and get observation
-                obs, _, _, _ = env.step(action)
-                pos = env.psm1.get_current_position()[:3, 3]  # Get the current position of the robot's jaw
-                print("Tip Position:", np.round(pos, 4))
+            # Check the grasp status
+            if env._contact_constraint is not None:
+                print("Grasp Status: ✅ GRASPED (Constraint Active)")
+            else:
+                print("Grasp Status: ❌ NOT GRASPING")
 
-                # Get needle position (like in my_needle_pick_env.py)
-                needle_pos, _ = p.getBasePositionAndOrientation(env.needle_id)
-                needle_pos = np.array(needle_pos)
-
-                # Compute distance between gripper tip and needle
-                distance = np.linalg.norm(pos - needle_pos)
-                print("Distance (gripper - needle):", np.round(distance, 4))
-
-                # Get joint positions from observation (similar to my_needle_pick_env.py)
-                robot_state = env._get_robot_state(idx=0)
-                position = robot_state[:3]
-                euler_angles = robot_state[3:6]
-                orientation_quat = p.getQuaternionFromEuler(euler_angles)
-                psm_joints_angle = env.psm1.inverse_kinematics((position, orientation_quat), env.psm1.EEF_LINK_INDEX)
-                print("PSM Joint Angles:", np.round(np.degrees(psm_joints_angle), 4))
-
-            time.sleep(0.05)
+            # Distance calculation
+            gripper_tip_pos, _ = get_link_pose(env.psm1.body, env.psm1.TIP_LINK_INDEX)
+            needle_pos, _ = get_link_pose(env.needle_id, -1) 
+            distance_scaled = np.linalg.norm(np.array(gripper_tip_pos) - np.array(needle_pos))
+            real_world_distance = distance_scaled / env.SCALING
+            print(f"Distance (Real World): {real_world_distance:.4f}\n")
 
     except KeyboardInterrupt:
         print("🔚 Exiting.")

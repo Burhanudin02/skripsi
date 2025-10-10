@@ -45,6 +45,11 @@ class NeedlePickTrainEnv(PsmEnv):
             "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
         })
 
+    def _meet_contact_constraint_requirement(self) -> bool:
+        # For this task, the requirement is always met if the gripper
+        # is attempting to grasp the object.
+        return True
+
     def _env_setup(self):
         super()._env_setup()
         self.has_object = True
@@ -122,7 +127,7 @@ class NeedlePickTrainEnv(PsmEnv):
     def compute_reward(self, position, achieved_goal, desired_goal, info):
         # # Jarak gripper ke needle (target)
         distance = np.linalg.norm(position - achieved_goal)
-        distance = distance/5.0  # Normalize distance by scaling factor
+        distance = distance/5.0     # Normalize distance by scaling factor, converting to real-world meter unit
         print(f"Distance to needle: {distance}")
 
         # Orientation difference (yaw) between gripper and needle
@@ -168,7 +173,7 @@ class NeedlePickTrainEnv(PsmEnv):
         reward = reward
 
         if distance < 0.07:
-            reward += (1 - abs_yaw_error) * 0.01
+            reward += (1 - abs_yaw_error) * 0.1
             if just_grasped:
                 print("🎉 Just Grasped! Applying Bonus.")
                 reward += 1.0  # Large, one-time bonus for success
@@ -224,19 +229,19 @@ class NeedlePickTrainEnv(PsmEnv):
         super()._set_action(action)
 
     def reset(self):
+        # Call the parent's reset method to properly clear and rebuild the simulation
+        obs = super().reset()
+        
+        # Now, reset the state variables specific to this environment
         print("Reset...")
         self.timestep = 0
         self.was_gripping = False
-        workspace_limits = self.workspace_limits1
-        pos = (
-            workspace_limits[0][0],
-            workspace_limits[1][1],
-            (workspace_limits[2][1] + workspace_limits[2][0]) / 2
-        )
-        orn = (0.5, 0.5, -0.5, -0.5)
-        joint_positions = self.psm1.inverse_kinematics((pos, orn), self.psm1.EEF_LINK_INDEX)
-        self.psm1.reset_joint(joint_positions)
-        return self._get_obs()
+    
+        # The parent reset already calls _env_setup, which places the robot.
+        # So you don't need to reset the robot's joint positions here again.
+        
+        # The parent reset already returns the initial observation.
+        return obs
 
     def step(self, action):
         self.timestep += 1
