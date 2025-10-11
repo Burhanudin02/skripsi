@@ -2,14 +2,14 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your environment
 from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
-import torch, os, re
+import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 10
+num_envs = 1
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode=None, reward_mode="sparse", num_envs=num_envs)
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="less-sparse", num_envs=num_envs)
 
 if __name__ == '__main__':
     num_envs = num_envs  # Adjust the number of parallel environments you want
@@ -45,35 +45,39 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
 
-    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
-                batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
-                n_epochs=3, tensorboard_log=log_dir
-                )
+    agent_index = 6     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 4
+    model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+
+    # # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
+    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
+    #             batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
+    #             n_epochs=3, tensorboard_log=log_dir
+    #             )
     
     # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=100000, progress_bar=True)
+    model.learn(total_timesteps=102400, progress_bar=True)
 
     # Save the trained model
     model.save(f"{base_path}{prefix}{last_idx+1}")
 
-    ## Retrain the initialized model
-    # start_idx = 9   # model terakhir yang ada
-    # end_idx = 12    # model terakhir yang akan disimpan
+    # Retrain the initialized model
+    start_idx = last_idx+1   # model terakhir yang ada
+    end_idx = start_idx + jumlah_retrain    # model terakhir yang akan disimpan
 
-    # for i in range(start_idx, end_idx):
-    #     # Load model sebelumnya
-    #     model_path = f"{base_path}{prefix}{i}"
-    #     model = PPO.load(model_path, env, device='cpu')
+    for i in range(start_idx, end_idx):
+        # Load model sebelumnya
+        model_path = f"{base_path}{prefix}{i}"
+        model = PPO.load(model_path, env, device='cuda')
     
-    #     # Training
-    #     model.learn(total_timesteps=100000, progress_bar=True)
+        # Training
+        model.learn(total_timesteps=102400, progress_bar=True)
     
-    #     # Save dengan nomor urut berikutnya
-    #     save_path = f"{base_path}{prefix}{i+1}"
-    #     model.save(save_path)
+        # Save dengan nomor urut berikutnya
+        save_path = f"{base_path}{prefix}{i+1}"
+        model.save(save_path)
     
-    #     print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
+        print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
 
 
 #needle_pick_ppo_gpu --> n_steps=1024, batch_size=32, learning_rate=1e-14, clip_range=0.1
