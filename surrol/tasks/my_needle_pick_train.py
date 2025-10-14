@@ -2,10 +2,10 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your environment
 from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
-import torch, os, re
+import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 10
+num_envs = 8
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
@@ -45,8 +45,8 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
     
-    agent_index = 1     # index model awal yang akan diload untuk re-train
-    jumlah_retrain = 5
+    agent_index = 10     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 10
     model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
     
     ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     #             )
     
     # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=1000000, progress_bar=True)
+    model.learn(total_timesteps=1024000, progress_bar=True)
 
     # Save the trained model
     model.save(f"{base_path}{prefix}{last_idx+1}")
@@ -71,7 +71,7 @@ if __name__ == '__main__':
         model = PPO.load(model_path, env, device='cuda')
     
         # Training
-        model.learn(total_timesteps=1000000, progress_bar=True)
+        model.learn(total_timesteps=1024000, progress_bar=True)
     
         # Save dengan nomor urut berikutnya
         save_path = f"{base_path}{prefix}{i+1}"

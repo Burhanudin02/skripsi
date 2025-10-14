@@ -45,6 +45,9 @@ class NeedlePickTrainEnv(PsmEnv):
             "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
         })
 
+    def _meet_contact_constraint_requirement(self) -> bool:
+        return True
+
     def _env_setup(self):
         super()._env_setup()
         self.has_object = True
@@ -141,34 +144,34 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Check for different reward modes
         if self.reward_mode == "less_sparse":
-            return self.less_sparse_reward_shape(-distance, distance, 
+            return self.less_sparse_reward_shape(distance, 
                                                  abs_yaw_error, just_grasped, 
                                                  is_gripping_now, needle_to_goal)
         elif self.reward_mode == "curriculum":
-            return self.curriculum_learn_reward(info, -distance, distance, 
+            return self.curriculum_learn_reward(info, distance, 
                                                 abs_yaw_error, just_grasped, 
                                                  is_gripping_now, needle_to_goal)
 
         # Default: sparse
-        reward = (1-distance) * 0.01
+        reward = (0.01-distance) * 0.1
 
         if just_grasped:
             print("🎉 Just Grasped! Applying Bonus.")
             reward += 1.0  # Large, one-time bonus for success
 
         if is_gripping_now:
-            reward += (1 - needle_to_goal) * 0.01
+            reward += (0.01 - needle_to_goal) * 0.1
         
         print(f"Reward: {reward}")
         return reward
 
-    def less_sparse_reward_shape(self, base_reward, distance, 
+    def less_sparse_reward_shape(self, distance, 
                                  abs_yaw_error, just_grasped, 
                                  is_gripping_now, needle_to_goal):
-        reward = base_reward * 0.1  # Scale down the base reward
+        reward = (0.01-distance) * 0.1  # Scale down the base reward
 
         if distance < 0.1:
-            reward += (1 - abs_yaw_error) * 0.1
+            reward -= abs_yaw_error * 0.1
             if just_grasped:
                 print("🎉 Just Grasped! Applying Bonus.")
                 reward += 1.0  # Large, one-time bonus for success
@@ -176,32 +179,32 @@ class NeedlePickTrainEnv(PsmEnv):
                 if not is_gripping_now:
                     # --- STAGE 1: Approach the needle ---
                     # Reward for getting closer to the needle
-                    reward = -distance * 0.1 
+                    reward = (0.01-distance) * 0.1 
 
             if is_gripping_now:
                 # --- STAGE 2: Move the needle to the goal ---
                 # Agent is now holding the needle. Reward for moving needle to goal.
-                reward += (1 - needle_to_goal) * 0.1
+                reward += (0.01 - needle_to_goal) * 0.1
                 
                 # Constant "holding" bonus to incentivize not dropping the needle
                 reward += 0.01
         
         return reward
 
-    def curriculum_learn_reward(self, info, reward, distance, 
+    def curriculum_learn_reward(self, info, distance, 
                                 abs_yaw_error, just_grasped, 
                                 is_gripping_now, needle_to_goal):
         steps = info.get("timestep", 0)
         num_envs = self.num_envs
-        reward = reward
+        base_reward = (0.01-distance)
         
         # Approaching needle
         if steps < 100000 / num_envs:
-            reward = reward
+            reward = base_reward*0.1
         
         # Aligning orientation
         elif steps < 250000 / num_envs:
-            reward += (1 - abs_yaw_error) * 0.01
+            reward -= (abs_yaw_error) * 0.01
         
         # Grasping 
         elif steps < 500000 / num_envs:
@@ -214,7 +217,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # Go to final goal        
         elif steps < 1000000 / num_envs:
             if is_gripping_now:
-                reward += -needle_to_goal
+                reward += (0.01-needle_to_goal)*0.1
 
         return reward
 
@@ -224,19 +227,11 @@ class NeedlePickTrainEnv(PsmEnv):
         super()._set_action(action)
 
     def reset(self):
+        obs = super().reset()
         print("Reset...")
         self.timestep = 0
         self.was_gripping = False
-        workspace_limits = self.workspace_limits1
-        pos = (
-            workspace_limits[0][0],
-            workspace_limits[1][1],
-            (workspace_limits[2][1] + workspace_limits[2][0]) / 2
-        )
-        orn = (0.5, 0.5, -0.5, -0.5)
-        joint_positions = self.psm1.inverse_kinematics((pos, orn), self.psm1.EEF_LINK_INDEX)
-        self.psm1.reset_joint(joint_positions)
-        return self._get_obs()
+        return obs
 
     def step(self, action):
         self.timestep += 1

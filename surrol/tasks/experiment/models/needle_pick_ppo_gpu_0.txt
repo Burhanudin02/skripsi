@@ -1,0 +1,2 @@
+needle_pick_ppo_gpu_1 - 5 less-sparse using higher distance weight coeff ((0.01-distance)*0.1)
+needle_pick_ppo_gpu_6 - 10 
