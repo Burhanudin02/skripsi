@@ -177,6 +177,9 @@ class NeedlePickTrainEnv(PsmEnv):
                 reward += 1.0  # Large, one-time bonus for success
 
                 if not is_gripping_now:
+                    
+                    reward -= 0.9995 # Erase almost all of given bonus
+                    
                     # --- STAGE 1: Approach the needle ---
                     # Reward for getting closer to the needle
                     reward = (0.01-distance) * 0.1 
