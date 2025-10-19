@@ -151,9 +151,14 @@ class NeedlePickTrainEnv(PsmEnv):
             "desired_goal": np.array(goal_pos, dtype=np.float32)
         }
 
-    def compute_reward(self, position, achieved_goal, desired_goal, info):
+    def compute_reward(self, obs, info):
         # # Jarak gripper ke needle (target)
-        distance = np.linalg.norm(position - achieved_goal)/self.SCALING    # Normalize distance by scaling factor, converting to real-world meter unit
+        position = obs["observation"][:3]
+        quat = obs["observation"][3:7]
+        achieved = obs["achieved_goal"]
+        desired = obs["desired_goal"]
+
+        distance = np.linalg.norm(position - achieved)/self.SCALING    # Normalize distance by scaling factor, converting to real-world meter unit
         print(f"Distance to needle: {distance}")
 
         # Orientation difference (yaw) between gripper and needle
@@ -168,7 +173,7 @@ class NeedlePickTrainEnv(PsmEnv):
         fail_to_grip = not is_gripping_now and self.was_gripping
 
         # Jarak needle ke goal akhir
-        needle_to_goal = np.linalg.norm(achieved_goal - desired_goal) / self.SCALING
+        needle_to_goal = np.linalg.norm(achieved - desired) / self.SCALING
         print(f"Needle to goal: {needle_to_goal}")
 
         # Check for different reward modes
@@ -178,7 +183,7 @@ class NeedlePickTrainEnv(PsmEnv):
                                                  is_gripping_now, fail_to_grip,
                                                  needle_to_goal)
         elif self.reward_mode == "curriculum":
-            return self.curriculum_learn_reward(distance, 
+            return self.curriculum_learn_reward(obs, distance, 
                                                 abs_yaw_error, just_grasped, 
                                                  is_gripping_now, fail_to_grip, 
                                                  needle_to_goal)
@@ -233,7 +238,7 @@ class NeedlePickTrainEnv(PsmEnv):
         print(f"Reward: {reward}")
         return reward
 
-    def curriculum_learn_reward(self, distance, 
+    def curriculum_learn_reward(self, obs, distance, 
                                 abs_yaw_error, just_grasped, 
                                 is_gripping_now, fail_to_grip, 
                                 needle_to_goal):
@@ -257,7 +262,6 @@ class NeedlePickTrainEnv(PsmEnv):
         # Get the normalized timestep from the agent's observation.
         # The CYCLE_LENGTH variable is NOT needed here because the normalization
         # has already been done in _get_obs.
-        obs = self._get_obs() 
         normalized_step = obs["observation"][-1]
 
         # --- 3. Compute Reward Based on Your Intuitive, Stage-Based Style ---
@@ -283,11 +287,8 @@ class NeedlePickTrainEnv(PsmEnv):
                 reward += GRASP_BONUS
 
             if fail_to_grip:
-                reward -= 0.9995 # Erase almost all of given bonus
-
-            if not is_gripping_now:
                 print("Failed to hold, PENALIZED")
-                reward -= GRASP_PENALTY
+                reward -= GRASP_PENALTY # Erase almost all of given bonus
         
         else: # Stage 4: Go to final goal
             stage = 4
@@ -297,7 +298,7 @@ class NeedlePickTrainEnv(PsmEnv):
                 goal_reward = 0.01 - needle_to_goal
                 reward += GOAL_REWARD_WEIGHT * goal_reward
         
-        print(f"Stage: {stage}, Reward: {reward:.4f}, Dist: {distance:.3f}, YawErr: {np.rad2deg(abs_yaw_error):.1f}°")
+        print(f"Stage: {stage}, Reward: {reward:.4f}")
         return reward
 
     def _set_action(self, action: np.ndarray):
@@ -334,19 +335,13 @@ class NeedlePickTrainEnv(PsmEnv):
         achieved = obs["achieved_goal"]
         desired = obs["desired_goal"]
 
-        # Joint valid check
-        robot_state = obs["observation"][:7] # Get the robot state from the observation
-        position = robot_state[:3]
-        quat = robot_state[3:7]  # ensure quaternion is returned from _get_robot_state
-        # joint_angles = self.psm1.inverse_kinematics((position, quat), self.psm1.EEF_LINK_INDEX)
-
         info = {
-            "timestep": self.timestep,
             "is_gripping": self._contact_constraint is not None,
             "needle_out_of_bounds": self.needle_out_of_bounds
         }
 
-        reward = self.compute_reward(position, achieved, desired, info)
+        reward = self.compute_reward(obs, info)
+        
         done = self._is_done(achieved, desired)
 
         self.was_gripping = self._contact_constraint is not None
