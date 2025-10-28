@@ -4,7 +4,7 @@ import pybullet as p
 from surrol.tasks.psm_env import PsmEnv
 import os
 from surrol.const import ASSET_DIR_PATH
-from surrol.utils.pybullet_utils import get_link_pose
+from surrol.utils.pybullet_utils import get_link_pose, wrap_angle
 
 class PsmKeyboardControlEnv(PsmEnv):
     ACTION_MODE = 'yaw'
@@ -67,6 +67,11 @@ class PsmKeyboardControlEnv(PsmEnv):
         return 0.0
     def _is_success(self, achieved_goal, desired_goal):
         return 0.0
+    
+    def reset(self):
+        """Reset the environment to an initial state."""
+        super().reset()
+
 
 # --- Key map for arrow keys ---
 KEY_MAP = {
@@ -74,8 +79,8 @@ KEY_MAP = {
     p.B3G_UP_ARROW:   np.array([-0.1, 0.0, 0.0]),
     p.B3G_RIGHT_ARROW:np.array([0.0, 0.1, 0.0]),
     p.B3G_LEFT_ARROW: np.array([0.0, -0.1, 0.0]),
-    ord('e'):         np.array([0.0, 0.0, -10.0]),
-    ord('q'):         np.array([0.0, 0.0, 10.0]),
+    ord('e'):         np.array([0.0, 0.0, -0.1]),
+    ord('q'):         np.array([0.0, 0.0, 0.1]),
 }
 ESC_KEY = 27
 
@@ -95,10 +100,11 @@ def main():
                 if keys[k] & p.KEY_IS_DOWN:
                     if k in KEY_MAP:
                         action[:3] += KEY_MAP[k]
-                    elif k == ord('j'): action[3] = 1.0
-                    elif k == ord('k'): action[3] = -1.0
+                    elif k == ord('j'): action[3] = 0.01
+                    elif k == ord('k'): action[3] = -0.01
                     elif k == ord('o'): action[4] = 1
                     elif k == ord('p'): action[4] = -1 # Send close jaw command
+                    elif k == ord('r'): env.reset()
                     elif k == ESC_KEY: raise KeyboardInterrupt
 
             env.step(action)
@@ -114,7 +120,23 @@ def main():
             needle_pos, _ = get_link_pose(env.needle_id, -1) 
             distance_scaled = np.linalg.norm(np.array(gripper_tip_pos) - np.array(needle_pos))
             real_world_distance = distance_scaled / env.SCALING
+            
+            # Get orientations
+            needle_pos, needle_orn = get_link_pose(env.needle_id, -1)
+            _, gripper_orn = get_link_pose(env.psm1.body, env.psm1.TIP_LINK_INDEX)
+
+            # Convert quaternions to euler angles and extract yaw
+            needle_euler = p.getEulerFromQuaternion(needle_orn)
+            gripper_euler = p.getEulerFromQuaternion(gripper_orn)
+
+            # Calculate yaw error
+            # yaw_error = abs(gripper_euler[2] - needle_euler[2])
+            # yaw_error = min(yaw_error, np.pi - yaw_error)
+            yaw_error = wrap_angle(gripper_euler[2] - needle_euler[2])
+            yaw_error = np.abs(yaw_error)
+            
             print(f"Distance (Real World): {real_world_distance:.4f}\n")
+            print(f"Yaw Error (rad): {yaw_error:.4f}")
 
     except KeyboardInterrupt:
         print("🔚 Exiting.")

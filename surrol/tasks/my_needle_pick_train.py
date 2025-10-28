@@ -6,10 +6,11 @@ import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
 num_envs = 1
+trajectory_len = 10240
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode=None, reward_mode="sparse", num_envs=num_envs)
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="less_sparse", num_envs=num_envs, traj_len = trajectory_len)
 
 if __name__ == '__main__':
     num_envs = num_envs  # Adjust the number of parallel environments you want
@@ -45,12 +46,12 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
 
-    # agent_index = 14     # index model awal yang akan diload untuk re-train
-    jumlah_retrain = 5
+    # agent_index = 22     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 1
     # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
 
     # # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=10240, 
+    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
                 batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
                 n_epochs=3, tensorboard_log=log_dir
                 )
@@ -65,19 +66,20 @@ if __name__ == '__main__':
     start_idx = last_idx+1   # model terakhir yang ada
     end_idx = start_idx + jumlah_retrain    # model terakhir yang akan disimpan
 
-    for i in range(start_idx, end_idx):
-        # Load model sebelumnya
-        model_path = f"{base_path}{prefix}{i}"
-        model = PPO.load(model_path, env, device='cuda')
-    
-        # Training
-        model.learn(total_timesteps=102400, progress_bar=True)
-    
-        # Save dengan nomor urut berikutnya
-        save_path = f"{base_path}{prefix}{i+1}"
-        model.save(save_path)
-    
-        print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
+    if not start_idx == end_idx:
+        for i in range(start_idx, end_idx):
+            # Load model sebelumnya
+            model_path = f"{base_path}{prefix}{i}"
+            model = PPO.load(model_path, env, device='cuda')
+        
+            # Training
+            model.learn(total_timesteps=102400, progress_bar=True)
+        
+            # Save dengan nomor urut berikutnya
+            save_path = f"{base_path}{prefix}{i+1}"
+            model.save(save_path)
+        
+            print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
 
 
 #needle_pick_ppo_gpu --> n_steps=1024, batch_size=32, learning_rate=1e-14, clip_range=0.1
