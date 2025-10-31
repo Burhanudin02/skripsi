@@ -186,6 +186,7 @@ class NeedlePickTrainEnv(PsmEnv):
         is_gripping_now = self.is_gripping_now
         just_grasped = is_gripping_now and not self.was_gripping
         fail_to_grip = not is_gripping_now and self.was_gripping
+        grip_success = is_gripping_now and self.was_gripping
 
         # Jarak needle ke goal akhir
         needle_to_goal = np.linalg.norm(achieved - desired) / self.SCALING
@@ -195,7 +196,7 @@ class NeedlePickTrainEnv(PsmEnv):
         if self.reward_mode == "less_sparse":
             return self.less_sparse_reward_shape(distance, 
                                                  abs_yaw_error, just_grasped, 
-                                                 is_gripping_now, fail_to_grip,
+                                                 grip_success, fail_to_grip,
                                                  needle_to_goal)
         elif self.reward_mode == "curriculum":
             return self.curriculum_learn_reward(obs, distance, 
@@ -210,11 +211,11 @@ class NeedlePickTrainEnv(PsmEnv):
 
         if just_grasped:
             print("🎉 Just Grasped! Applying Bonus.")
-            reward += 0.009995  # Large, one-time bonus for success 
+            # reward += 0.009995  # Large, one-time bonus for success 
 
         if is_gripping_now:
             reward += 0.01
-            reward -= needle_to_goal * 0.1
+            reward -= needle_to_goal * 0.01
             # reward += np.exp(0.01- needle_to_goal)
         
         print(f"Reward: {reward}")
@@ -222,31 +223,26 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def less_sparse_reward_shape(self, distance, 
                                  abs_yaw_error, just_grasped, 
-                                 is_gripping_now, fail_to_grip, 
+                                 grip_succes, fail_to_grip, 
                                  needle_to_goal):
-        reward = (0.01 - distance) * 0.1
-
         
-        reward += (1 - abs_yaw_error) * 0.001
+        reward = (0.01 - distance) * 0.1
+        reward -= np.abs(1.57 - abs_yaw_error) * 0.001
+        
         if just_grasped:
-            print("🎉 Just Grasped! Applying Bonus.")
+            print("🎉 Just Contact! Applying Bonus.")
             reward += 1.0  # Large, one-time bonus for success
 
         if fail_to_grip:
-            
+            print("Failed to hold, PENALIZED")
             reward -= 0.9995 # Erase almost all of given bonus
-            reward = (0.01-distance) * 0.1 
+            # reward = (0.01-distance) * 0.1 
 
-        if is_gripping_now:
-            # --- STAGE 2: Move the needle to the goal ---
-            # Agent is now holding the needle. Reward for moving needle to goal.
-            reward -= needle_to_goal * 0.1
-            
-            # Constant "holding" bonus to incentivize not dropping the needle
-            reward += 0.01  
-              
-       
-        print(f"is_gripping_now: {is_gripping_now}")
+        if grip_succes:
+            print("Consistent Contact!")
+            reward += 2 - needle_to_goal 
+                   
+        print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
 
