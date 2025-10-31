@@ -15,6 +15,7 @@ class NeedlePickTrainEnv(PsmEnv):
     # Needle workspace limits (meters)
     WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
     SCALING = 5.0
+    ACTION_SCALING = 5e-2
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
 
     # TOOL_JOINT_LIMIT = {   # The values are manually observed
@@ -38,8 +39,8 @@ class NeedlePickTrainEnv(PsmEnv):
             print("Less-Sparse mode enabled: Observation shape is 16.")
         elif self.reward_mode == "curriculum":
             # Add one dimension for the normalized timestep
-            observation_shape = (17,)
-            print("Curriculum mode enabled: Observation shape is 17.")
+            observation_shape = (16,)
+            print("Curriculum mode enabled: Observation shape is 16.")
         else:
             observation_shape = (15,)
             print(f"{reward_mode} mode enabled: Observation shape is 15.")
@@ -48,8 +49,8 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Action: dx, dy, dz, d_yaw, gripper_open/close
         self.action_space = spaces.Box(
-            low=np.array([-5e-2, -5e-2, -5e-2, -5e-2, -1.0]),
-            high=np.array([5e-2, 5e-2, 5e-2, 5e-2, 1.0]),
+            low=np.array([-1, -1, -1, -1, -1.0]),
+            high=np.array([1, 1, 1, 1, 1.0]),
             dtype=np.float64
         )
 
@@ -143,7 +144,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # If in curriculum mode, add the normalized timestep
         if self.reward_mode == "less_sparse":
             final_observation = np.concatenate([base_observation, needle_yaw, 
-                                                is_gripping_now, was_gripping])
+                                                is_gripping_now, was_gripping]).astype(np.float32)
         elif self.reward_mode == "curriculum":
             # Normalize the timestep to a [0, 1] range. 
             # Let's assume the curriculum completes at 1,000,000 steps.
@@ -153,8 +154,7 @@ class NeedlePickTrainEnv(PsmEnv):
             
             # Concatenate the normalized step to the observation
             final_observation = np.concatenate([base_observation,  needle_yaw, 
-                                                is_gripping_now, was_gripping, 
-                                                normalized_step]).astype(np.float32)
+                                                is_gripping_now, was_gripping]).astype(np.float32)
         else:
             final_observation = np.concatenate([base_observation, is_gripping_now, 
                                                 was_gripping]).astype(np.float32)
@@ -199,9 +199,9 @@ class NeedlePickTrainEnv(PsmEnv):
                                                  grip_success, fail_to_grip,
                                                  needle_to_goal)
         elif self.reward_mode == "curriculum":
-            return self.curriculum_learn_reward(obs, distance, 
+            return self.curriculum_learn_reward(distance, 
                                                 abs_yaw_error, just_grasped, 
-                                                 is_gripping_now, fail_to_grip, 
+                                                 grip_success, fail_to_grip, 
                                                  needle_to_goal)
 
         # Default: sparse
@@ -246,61 +246,40 @@ class NeedlePickTrainEnv(PsmEnv):
         print(f"Reward: {reward}")
         return reward
 
-    def curriculum_learn_reward(self, obs, distance, 
+    def curriculum_learn_reward(self, distance, 
                                 abs_yaw_error, just_grasped, 
-                                is_gripping_now, fail_to_grip, 
+                                grip_success, fail_to_grip, 
                                 needle_to_goal):
         
-        STAGE_1_END = 0.25  # End of Approach stage
-        STAGE_2_END = 0.50  # End of Align stage
-        STAGE_3_END = 0.75  # End of Grasp stage
-
         # Reward/Penalty Weights
-        YAW_PENALTY_WEIGHT = 1.0
-        GOAL_REWARD_WEIGHT = 2.0
+        YAW_PENALTY_WEIGHT = 0.001
         GRASP_BONUS = 1.0
         GRASP_PENALTY = 0.9995
+        SUCCESS_GRIP_REWARD = 2.0
 
-        normalized_step = obs["observation"][-1]
+        reward = 0
 
-        base_reward = 0.01 - distance
-        reward = 0.0
+        if distance > 0.01:
+            reward += (0.01 - distance) * 0.1
+        elif distance <= 0.01:
+            reward += 0.01 - np.abs(1.57-abs_yaw_error)*YAW_PENALTY_WEIGHT
+            if 1.47 < abs_yaw_error < 1.67:
+                if just_grasped:
+                    print("🎉 Just Contact! Applying Bonus.")
+                    reward += GRASP_BONUS  # Large, one-time bonus for success
+                elif fail_to_grip:
+                    print("Failed to hold, PENALIZED")
+                    reward -= GRASP_PENALTY  # Erase almost all of given bonus
+                elif grip_success:
+                    print("Consistent Contact!")
+                    reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+        
+        print(f"Reward: {reward}")
 
-        if normalized_step < STAGE_1_END:
-            stage = 1
-            reward = base_reward
-        
-        elif normalized_step < STAGE_2_END:
-            stage = 2
-            reward = base_reward
-            reward -= YAW_PENALTY_WEIGHT * abs_yaw_error
-        
-        elif normalized_step < STAGE_3_END:
-            stage = 3
-            reward = base_reward
-            reward -= YAW_PENALTY_WEIGHT * abs_yaw_error
-            
-            if just_grasped:
-                print("🎉 Just Grasped! Applying Bonus.")
-                reward += GRASP_BONUS
-
-            if fail_to_grip:
-                print("Failed to hold, PENALIZED")
-                reward -= GRASP_PENALTY # Erase almost all of given bonus
-        
-        else: 
-            stage = 4
-            reward = base_reward
-            
-            if is_gripping_now:
-                goal_reward = 0.01 - needle_to_goal
-                reward += GOAL_REWARD_WEIGHT * goal_reward
-        
-        print(f"Stage: {stage}, Reward: {reward:.4f}")
         return reward
 
     def _set_action(self, action: np.ndarray):
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        action = np.clip(action, self.action_space.low, self.action_space.high) 
         self.jaw_action = action[4]
         super()._set_action(action)
 
@@ -320,6 +299,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def step(self, action):
         self.timestep += 1
+        action = action * self.ACTION_SCALING
         self._set_action(action)
         step(1)
         super()._step_callback()
