@@ -49,7 +49,7 @@ def evaluate_model(model_path, num_episodes=10):
 
 if __name__ == "__main__":
     # Define the path where the trained model is saved
-    model_path = "/media/ataka/toshiba-burhan/skripsi/surrol/tasks/experiment/models/needle_pick_ppo_gpu_11"  # Update this path to your model's location
+    model_path = "/media/ataka/toshiba-burhan/skripsi/surrol/tasks/experiment/models/needle_pick_ppo_gpu_55"  # Update this path to your model's location
     
     # Evaluate the trained model for 3 episodes
     evaluate_model(model_path, num_episodes=3)

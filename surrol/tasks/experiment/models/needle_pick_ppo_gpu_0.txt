@@ -3,4 +3,6 @@ needle_pick_ppo_gpu_6 - 10 continue from needle_pick_ppo_gpu_5
 needle_pick_ppo_gpu_11 - 20 continue from needle_pick_ppo_gpu_5 (human error, seharusnya pakai mode "less_sparse", tapi malah nulisnya "less-sparse" )
 needle_pick_ppo_gpu_21 - 25 less_sparse, agen mengeksploitasi distance threshold, fail!
 needle_pick_ppo_gpu_26 - 35 less_sparse, weight_distance = weight_yaw_error = 0.1
-needle_pick_ppo_gpu_36 - 65 less_sparse, weight_distance = 0.1, weight_yaw_error = 0.001
+needle_pick_ppo_gpu_36 - 55 less_sparse, weight_distance = 0.1, weight_yaw_error = 0.001
+needle_pick_ppo_gpu_56 - 65 sparse, with adjusted "observation"
+needle_pick_ppo_gpu_66 - 75 sparse, with normalized action space
