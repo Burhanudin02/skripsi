@@ -97,13 +97,13 @@ class NeedlePickTrainEnv(PsmEnv):
         # Load needle (rigid body)
         yaw = (np.random.rand() - 0.5) * np.pi
         needle_pos = (
-            np.mean(self.WORKSPACE_LIMITS[0]) + (np.random.rand() - 0.5) * 0.1,
-            np.mean(self.WORKSPACE_LIMITS[1]) + (np.random.rand() - 0.5) * 0.1,
-            self.WORKSPACE_LIMITS[2][0] + 0.01
+            np.mean(self.workspace_limits1[0]) + (np.random.rand() - 0.5) * 0.1,
+            np.mean(self.workspace_limits1[1]) + (np.random.rand() - 0.5) * 0.1,
+            self.workspace_limits1[2][0] + 0.01
         )
         needle_id = p.loadURDF(
             os.path.join(ASSET_DIR_PATH, 'needle/needle_40mm.urdf'),
-            needle_pos,
+            np.array(needle_pos) * self.SCALING,   # <-- ensure position is in sim (scaled) units
             p.getQuaternionFromEuler((0, 0, yaw)),
             useFixedBase=False,
             globalScaling=self.SCALING
@@ -113,20 +113,21 @@ class NeedlePickTrainEnv(PsmEnv):
         self.obj_id, self.obj_link1 = needle_id, 1
 
         self.needle_out_of_bounds = False
-        self.goal = self._sample_goal()
+        # Keep goal in same sim coordinate frame as loaded object (scale to sim units)
+        self.goal = np.array(self._sample_goal()) * self.SCALING
 
     def _sample_goal(self):
-        limits = self.WORKSPACE_LIMITS
+        limits = self.workspace_limits1
         return np.array([
             np.random.uniform(limits[0][0], limits[0][1]),
             np.random.uniform(limits[1][0], limits[1][1]),
-            np.random.uniform(limits[2][0], limits[2][1])
+            self.workspace_limits1[2][1] - 0.03
         ])
 
     def _get_obs(self):
         robot_state = self._get_robot_state(idx=0)
         object_pos, object_orn_quat = get_link_pose(self.obj_id, self.obj_link1)
-        goal_pos = self.goal
+        goal_pos = self.goal 
 
         object_euler = p.getEulerFromQuaternion(object_orn_quat)
         needle_yaw = object_euler[2]
