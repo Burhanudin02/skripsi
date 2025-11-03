@@ -13,7 +13,7 @@ class NeedlePickTrainEnv(PsmEnv):
     """
 
     # Needle workspace limits (meters)
-    WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
+    # WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
     SCALING = 5.0
     # ACTION_SCALING = 5e-2
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
@@ -57,8 +57,8 @@ class NeedlePickTrainEnv(PsmEnv):
         # Observation: dict format for GoalEnv
         self.observation_space = spaces.Dict({
             "observation": spaces.Box(low=-np.inf, high=np.inf, shape=observation_shape, dtype=np.float32),
-            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32),
-            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
+            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32),
+            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
         })
 
     def _meet_contact_constraint_requirement(self) -> bool:
@@ -162,16 +162,16 @@ class NeedlePickTrainEnv(PsmEnv):
 
         return {
             "observation": final_observation,
-            "achieved_goal": np.array(object_pos, dtype=np.float32),
-            "desired_goal": np.array(goal_pos, dtype=np.float32)
+            "achieved_goal": np.array(np.concatenate([object_pos, robot_state[:3]]), dtype=np.float32),
+            "desired_goal": np.array(np.concatenate([goal_pos, object_pos]), dtype=np.float32)
         }
 
     def compute_reward(self, obs, info):
         # # Jarak gripper ke needle (target)
         position = obs["observation"][:3]
         quat = obs["observation"][3:7]
-        achieved = obs["achieved_goal"]
-        desired = obs["desired_goal"]
+        achieved = obs["achieved_goal"][:3]
+        desired = obs["desired_goal"][:3]
 
         distance = np.linalg.norm(position - achieved)/self.SCALING    # Normalize distance by scaling factor, converting to real-world meter unit
         print(f"Distance to needle: {distance}")
@@ -261,7 +261,7 @@ class NeedlePickTrainEnv(PsmEnv):
         reward = 0
 
         if distance > 0.01:
-            reward += (0.01 - distance) * 0.1
+            reward += (0.01 - distance) * 0.1  
         elif distance <= 0.01:
             reward += 0.01 - np.abs(1.57-abs_yaw_error)*YAW_PENALTY_WEIGHT
             if 1.47 < abs_yaw_error < 1.67:
