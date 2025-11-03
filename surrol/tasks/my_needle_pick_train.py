@@ -11,7 +11,7 @@ trajectory_len = 10240
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode="human", reward_mode="curriculum", num_envs=num_envs, traj_len = trajectory_len)
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="curriculum", num_envs=num_envs, traj_len = trajectory_len)
 
 if __name__ == '__main__':
     num_envs = num_envs  # Adjust the number of parallel environments you want

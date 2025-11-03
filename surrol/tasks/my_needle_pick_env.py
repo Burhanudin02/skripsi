@@ -15,7 +15,7 @@ class NeedlePickTrainEnv(PsmEnv):
     # Needle workspace limits (meters)
     WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
     SCALING = 5.0
-    ACTION_SCALING = 5e-2
+    # ACTION_SCALING = 5e-2
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
 
     # TOOL_JOINT_LIMIT = {   # The values are manually observed
@@ -299,7 +299,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def step(self, action):
         self.timestep += 1
-        action = action * self.ACTION_SCALING
+        # action = action * self.ACTION_SCALING
         self._set_action(action)
         step(1)
         super()._step_callback()
