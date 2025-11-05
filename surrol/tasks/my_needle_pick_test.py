@@ -11,7 +11,7 @@ def evaluate_model(model_path, num_episodes=10):
     # Create the environment
     def make_env():
         # return NeedlePickTrainEnv(render_mode='human')
-        return NeedlePickTrainEnv(render_mode='human', reward_mode="curriculum", traj_len=10240)
+        return NeedlePickTrainEnv(render_mode='human', reward_mode="less_sparse", traj_len=10240)
 
     # Create a vectorized environment for evaluation
     env = DummyVecEnv([make_env])
@@ -49,7 +49,7 @@ def evaluate_model(model_path, num_episodes=10):
 
 if __name__ == "__main__":
     # Define the path where the trained model is saved
-    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/needle_pick_ppo_gpu_36"  # Update this path to your model's location
-    # model_path = "/home/host-20-04/Downloads/needle_pick_ppo_gpu_21"
+    model_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/needle_pick_ppo_gpu_35"  # Update this path to your model's location
+    # model_path = "/home/host-20-04/Downloads/needle_pick_ppo_gpu_23"
     # Evaluate the trained model for 3 episodes
     evaluate_model(model_path, num_episodes=3)

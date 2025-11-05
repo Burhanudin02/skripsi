@@ -48,8 +48,8 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
 
-    agent_index = 37     # index model awal yang akan diload untuk re-train
-    jumlah_retrain = 1
+    agent_index = 38     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 0
     model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
 
     ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)

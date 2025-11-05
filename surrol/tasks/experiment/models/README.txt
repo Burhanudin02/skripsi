@@ -9,3 +9,5 @@ needle_pick_ppo_gpu_26 - 30 -->curriculum, adjusted weights, all stages has the 
 needle_pick_ppo_gpu_31 - 32 --> less_sparse, adjusted "observation"
 needle_pick_ppo_gpu_33 - 34 --> curriculum, totally new reward function
 needle_pick_ppo_gpu_35 --> curriculum, normalized action space
+needle_pick_ppo_gpu_36 - 38 --> curriculum, unscaled normalized action
+needle_pick_ppo_gpu_39 --> curriculum, with small parameter adjustment

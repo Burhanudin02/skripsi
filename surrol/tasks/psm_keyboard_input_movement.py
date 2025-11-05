@@ -54,7 +54,7 @@ class PsmKeyboardControlEnv(PsmEnv):
 
         # --- FIX: Set the object ID and the link index for the achieved_goal/grasping logic ---
         self.obj_id = self.needle_id
-        self.obj_link1 = 1  # Set the link index to 1 (as in the original needle pick env)
+        self.obj_link1 = 1
         # --------------------------------------------------------------------------------------
 
     def _meet_contact_constraint_requirement(self) -> bool:
@@ -71,6 +71,34 @@ class PsmKeyboardControlEnv(PsmEnv):
     def reset(self):
         """Reset the environment to an initial state."""
         super().reset()
+
+    def get_gripper_needle_status(self, link_index=None):
+        """
+        Return (distance, abs_yaw_error, gripper_tip_pos, needle_pos) using
+        the same reference and scaling as my_needle_pick_env.py.
+        """
+        # gripper robot state (assumed format: [x,y,z,roll,pitch,yaw])
+        robot_state = self._get_robot_state(idx=0)
+        position = np.array(robot_state[:3])          # gripper tip position (sim units)
+        current_robot_yaw = robot_state[5]            # yaw from robot state (rad)
+
+        # needle pose (use known object id / link)
+        needle_pos, needle_orn = get_link_pose(self.needle_id, self.obj_link1)
+        achieved = np.array(needle_pos)
+
+        # distance normalized to real-world units (same as my_needle_pick_env)
+        distance = np.linalg.norm(position - achieved) / self.SCALING
+
+        # needle yaw
+        needle_euler = p.getEulerFromQuaternion(needle_orn)
+        current_needle_yaw = needle_euler[2]
+
+        # yaw error (wrapped and absolute), same formula as my_needle_pick_env
+        raw_yaw_diff = current_robot_yaw - current_needle_yaw
+        wrapped_yaw_error = wrap_angle(raw_yaw_diff)
+        abs_yaw_error = np.abs(wrapped_yaw_error)
+
+        return distance, abs_yaw_error
 
 
 # --- Key map for arrow keys ---
@@ -110,33 +138,14 @@ def main():
             env.step(action)
 
             # Check the grasp status
-            if env._contact_constraint is not None:
-                print("Grasp Status: ✅ GRASPED (Constraint Active)")
-            else:
-                print("Grasp Status: ❌ NOT GRASPING")
+            print("Grasp Status:", "✅ GRASPED (Constraint Active)" if env._contact_constraint is not None else "❌ NOT GRASPING")
 
-            # Distance calculation
-            gripper_tip_pos, _ = get_link_pose(env.psm1.body, env.psm1.TIP_LINK_INDEX)
-            needle_pos, _ = get_link_pose(env.needle_id, -1) 
-            distance_scaled = np.linalg.norm(np.array(gripper_tip_pos) - np.array(needle_pos))
-            real_world_distance = distance_scaled / env.SCALING
-            
-            # Get orientations
-            needle_pos, needle_orn = get_link_pose(env.needle_id, -1)
-            _, gripper_orn = get_link_pose(env.psm1.body, env.psm1.TIP_LINK_INDEX)
-
-            # Convert quaternions to euler angles and extract yaw
-            needle_euler = p.getEulerFromQuaternion(needle_orn)
-            gripper_euler = p.getEulerFromQuaternion(gripper_orn)
-
-            # Calculate yaw error
-            # yaw_error = abs(gripper_euler[2] - needle_euler[2])
-            # yaw_error = min(yaw_error, np.pi - yaw_error)
-            yaw_error = wrap_angle(gripper_euler[2] - needle_euler[2])
-            yaw_error = np.abs(yaw_error)
-            
-            print(f"Distance (Real World): {real_world_distance:.4f}\n")
+            # Use class helper to get status (avoids calling internal function from module scope)
+            real_world_distance, yaw_error = env.get_gripper_needle_status()
+            print(f"Distance (Real World): {real_world_distance:.4f}")
             print(f"Yaw Error (rad): {yaw_error:.4f}")
+            # optional: debug positions
+            # print("Tip pos:", np.round(gripper_tip_pos,4), "Needle pos:", np.round(needle_pos,4))
 
     except KeyboardInterrupt:
         print("🔚 Exiting.")

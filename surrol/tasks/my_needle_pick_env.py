@@ -219,6 +219,7 @@ class NeedlePickTrainEnv(PsmEnv):
             reward -= needle_to_goal * 0.01
             # reward += np.exp(0.01- needle_to_goal)
         
+        print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
 
@@ -228,7 +229,7 @@ class NeedlePickTrainEnv(PsmEnv):
                                  needle_to_goal):
         
         reward = (0.03 - distance) * 0.1
-        reward -= np.abs(1.57 - abs_yaw_error) * 0.001
+        reward -= abs_yaw_error * 0.001
         
         if just_grasped:
             print("🎉 Just Contact! Applying Bonus.")
@@ -260,11 +261,11 @@ class NeedlePickTrainEnv(PsmEnv):
 
         reward = 0
 
-        if distance > 0.01:
-            reward += (0.03 - distance) * 0.1  
-        elif distance <= 0.03:
-            reward += 0.01 - np.abs(1.57-abs_yaw_error)*YAW_PENALTY_WEIGHT
-            if 1.47 < abs_yaw_error < 1.67:
+        if abs_yaw_error > 0.005:
+            reward += 0.01 - abs_yaw_error*YAW_PENALTY_WEIGHT
+        elif distance > 0.009:
+            reward += (0.03 - distance)   
+            if abs_yaw_error <= 0.005:
                 if just_grasped:
                     print("🎉 Just Contact! Applying Bonus.")
                     reward += GRASP_BONUS  # Large, one-time bonus for success
@@ -274,6 +275,8 @@ class NeedlePickTrainEnv(PsmEnv):
                 elif grip_success:
                     print("Consistent Contact!")
                     reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+        else:
+            reward -=0.005
         
         print(f"Reward: {reward}")
 
