@@ -207,7 +207,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Default: sparse
         # reward = (0.01-distance) * 0.01
-        reward = (0.01-distance) * 0.1
+        reward = (0.03-distance) * 0.1
         # reward = np.exp(0.01-distance)
 
         if just_grasped:
@@ -227,7 +227,7 @@ class NeedlePickTrainEnv(PsmEnv):
                                  grip_succes, fail_to_grip, 
                                  needle_to_goal):
         
-        reward = (0.01 - distance) * 0.1
+        reward = (0.03 - distance) * 0.1
         reward -= np.abs(1.57 - abs_yaw_error) * 0.001
         
         if just_grasped:
@@ -261,8 +261,8 @@ class NeedlePickTrainEnv(PsmEnv):
         reward = 0
 
         if distance > 0.01:
-            reward += (0.01 - distance) * 0.1  
-        elif distance <= 0.01:
+            reward += (0.03 - distance) * 0.1  
+        elif distance <= 0.03:
             reward += 0.01 - np.abs(1.57-abs_yaw_error)*YAW_PENALTY_WEIGHT
             if 1.47 < abs_yaw_error < 1.67:
                 if just_grasped:
