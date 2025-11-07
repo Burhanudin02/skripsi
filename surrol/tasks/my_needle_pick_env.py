@@ -13,9 +13,9 @@ class NeedlePickTrainEnv(PsmEnv):
     """
 
     # Needle workspace limits (meters)
-    WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
+    # WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
     SCALING = 5.0
-    ACTION_SCALING = 5e-2
+    # ACTION_SCALING = 5e-2
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
 
     # TOOL_JOINT_LIMIT = {   # The values are manually observed
@@ -57,8 +57,8 @@ class NeedlePickTrainEnv(PsmEnv):
         # Observation: dict format for GoalEnv
         self.observation_space = spaces.Dict({
             "observation": spaces.Box(low=-np.inf, high=np.inf, shape=observation_shape, dtype=np.float32),
-            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32),
-            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
+            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32),
+            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
         })
 
     def _meet_contact_constraint_requirement(self) -> bool:
@@ -97,13 +97,13 @@ class NeedlePickTrainEnv(PsmEnv):
         # Load needle (rigid body)
         yaw = (np.random.rand() - 0.5) * np.pi
         needle_pos = (
-            np.mean(self.WORKSPACE_LIMITS[0]) + (np.random.rand() - 0.5) * 0.1,
-            np.mean(self.WORKSPACE_LIMITS[1]) + (np.random.rand() - 0.5) * 0.1,
-            self.WORKSPACE_LIMITS[2][0] + 0.01
+            np.mean(self.workspace_limits1[0]) + (np.random.rand() - 0.5) * 0.1,
+            np.mean(self.workspace_limits1[1]) + (np.random.rand() - 0.5) * 0.1,
+            self.workspace_limits1[2][0] + 0.01
         )
         needle_id = p.loadURDF(
             os.path.join(ASSET_DIR_PATH, 'needle/needle_40mm.urdf'),
-            needle_pos,
+            np.array(needle_pos) * self.SCALING,   # <-- ensure position is in sim (scaled) units
             p.getQuaternionFromEuler((0, 0, yaw)),
             useFixedBase=False,
             globalScaling=self.SCALING
@@ -113,20 +113,21 @@ class NeedlePickTrainEnv(PsmEnv):
         self.obj_id, self.obj_link1 = needle_id, 1
 
         self.needle_out_of_bounds = False
-        self.goal = self._sample_goal()
+        # Keep goal in same sim coordinate frame as loaded object (scale to sim units)
+        self.goal = np.array(self._sample_goal()) * self.SCALING
 
     def _sample_goal(self):
-        limits = self.WORKSPACE_LIMITS
+        limits = self.workspace_limits1
         return np.array([
             np.random.uniform(limits[0][0], limits[0][1]),
             np.random.uniform(limits[1][0], limits[1][1]),
-            np.random.uniform(limits[2][0], limits[2][1])
+            self.workspace_limits1[2][1] - 0.03
         ])
 
     def _get_obs(self):
         robot_state = self._get_robot_state(idx=0)
         object_pos, object_orn_quat = get_link_pose(self.obj_id, self.obj_link1)
-        goal_pos = self.goal
+        goal_pos = self.goal 
 
         object_euler = p.getEulerFromQuaternion(object_orn_quat)
         needle_yaw = object_euler[2]
@@ -161,16 +162,16 @@ class NeedlePickTrainEnv(PsmEnv):
 
         return {
             "observation": final_observation,
-            "achieved_goal": np.array(object_pos, dtype=np.float32),
-            "desired_goal": np.array(goal_pos, dtype=np.float32)
+            "achieved_goal": np.array(np.concatenate([object_pos, robot_state[:3]]), dtype=np.float32),
+            "desired_goal": np.array(np.concatenate([goal_pos, object_pos]), dtype=np.float32)
         }
 
     def compute_reward(self, obs, info):
         # # Jarak gripper ke needle (target)
         position = obs["observation"][:3]
         quat = obs["observation"][3:7]
-        achieved = obs["achieved_goal"]
-        desired = obs["desired_goal"]
+        achieved = obs["achieved_goal"][:3]
+        desired = obs["desired_goal"][:3]
 
         distance = np.linalg.norm(position - achieved)/self.SCALING    # Normalize distance by scaling factor, converting to real-world meter unit
         print(f"Distance to needle: {distance}")
@@ -206,7 +207,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Default: sparse
         # reward = (0.01-distance) * 0.01
-        reward = (0.01-distance) * 0.1
+        reward = (0.03-distance) * 0.1
         # reward = np.exp(0.01-distance)
 
         if just_grasped:
@@ -218,6 +219,7 @@ class NeedlePickTrainEnv(PsmEnv):
             reward -= needle_to_goal * 0.01
             # reward += np.exp(0.01- needle_to_goal)
         
+        print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
 
@@ -226,8 +228,8 @@ class NeedlePickTrainEnv(PsmEnv):
                                  grip_succes, fail_to_grip, 
                                  needle_to_goal):
         
-        reward = (0.01 - distance) * 0.1
-        reward -= np.abs(1.57 - abs_yaw_error) * 0.001
+        reward = (0.03 - distance) * 0.1
+        reward -= abs_yaw_error * 0.001
         
         if just_grasped:
             print("🎉 Just Contact! Applying Bonus.")
@@ -259,11 +261,11 @@ class NeedlePickTrainEnv(PsmEnv):
 
         reward = 0
 
-        if distance > 0.01:
-            reward += (0.01 - distance) * 0.1
-        elif distance <= 0.01:
-            reward += 0.01 - np.abs(1.57-abs_yaw_error)*YAW_PENALTY_WEIGHT
-            if 1.47 < abs_yaw_error < 1.67:
+        if abs_yaw_error > 0.005:
+            reward += 0.01 - abs_yaw_error*YAW_PENALTY_WEIGHT
+        elif distance > 0.009:
+            reward += (0.03 - distance)   
+            if abs_yaw_error <= 0.005:
                 if just_grasped:
                     print("🎉 Just Contact! Applying Bonus.")
                     reward += GRASP_BONUS  # Large, one-time bonus for success
@@ -273,6 +275,8 @@ class NeedlePickTrainEnv(PsmEnv):
                 elif grip_success:
                     print("Consistent Contact!")
                     reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+        else:
+            reward -=0.005
         
         print(f"Reward: {reward}")
 
@@ -299,7 +303,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def step(self, action):
         self.timestep += 1
-        action = action * self.ACTION_SCALING
+        # action = action * self.ACTION_SCALING
         self._set_action(action)
         step(1)
         super()._step_callback()

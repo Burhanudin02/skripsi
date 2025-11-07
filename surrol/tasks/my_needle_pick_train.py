@@ -10,7 +10,7 @@ trajectory_len = 10240
 
 def make_env():
     # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode=None, reward_mode="sparse", num_envs=num_envs, traj_len=trajectory_len)
+    return NeedlePickTrainEnv(render_mode=None, reward_mode="curriculum", num_envs=num_envs, traj_len=trajectory_len)
 
 if __name__ == '__main__':
     num_envs = num_envs  # Adjust the number of parallel environments you want
@@ -46,15 +46,15 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
     
-    # agent_index = 5     # index model awal yang akan diload untuk re-train
-    jumlah_retrain = 9
-    # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+    agent_index = 78     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 6
+    model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
     
     ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
-                batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
-                n_epochs=3, tensorboard_log=log_dir
-                )
+    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
+    #             batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
+    #             n_epochs=3, tensorboard_log=log_dir
+    #             )
     
     # Train the model and use TensorBoard callback
     model.learn(total_timesteps=1024000, progress_bar=True)

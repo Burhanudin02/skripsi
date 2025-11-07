@@ -6,3 +6,4 @@ needle_pick_ppo_gpu_26 - 35 less_sparse, weight_distance = weight_yaw_error = 0.
 needle_pick_ppo_gpu_36 - 55 less_sparse, weight_distance = 0.1, weight_yaw_error = 0.001
 needle_pick_ppo_gpu_56 - 65 sparse, with adjusted "observation"
 needle_pick_ppo_gpu_66 - 75 sparse, with normalized action space
+needle_pick_ppo_gpu_76 - 85 curriculum, with recalibrated distance measurment, unscaled normalized action, added goals
