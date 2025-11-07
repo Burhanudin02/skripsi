@@ -14,8 +14,9 @@ class NeedlePickTrainEnv(PsmEnv):
     """
 
     # Needle workspace limits (meters)
-    WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
+    # WORKSPACE_LIMITS = ((0.50, 0.60), (-0.05, 0.05), (0.685, 0.745))
     SCALING = 5.0
+    # ACTION_SCALING = 5e-2
     POSE_TRAY = ((0.55, 0, 0.6751), (0, 0, 0))
 
     # TOOL_JOINT_LIMIT = {   # The values are manually observed
@@ -39,8 +40,8 @@ class NeedlePickTrainEnv(PsmEnv):
             print("Less-Sparse mode enabled: Observation shape is 16.")
         elif self.reward_mode == "curriculum":
             # Add one dimension for the normalized timestep
-            observation_shape = (17,)
-            print("Curriculum mode enabled: Observation shape is 17.")
+            observation_shape = (16,)
+            print("Curriculum mode enabled: Observation shape is 16.")
         else:
             observation_shape = (15,)
             print(f"{reward_mode} mode enabled: Observation shape is 15.")
@@ -49,16 +50,16 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Action: dx, dy, dz, d_yaw, gripper_open/close
         self.action_space = spaces.Box(
-            low=np.array([-5e-2, -5e-2, -5e-2, -5e-2, -1.0]),
-            high=np.array([5e-2, 5e-2, 5e-2, 5e-2, 1.0]),
+            low=np.array([-1, -1, -1, -1, -1.0]),
+            high=np.array([1, 1, 1, 1, 1.0]),
             dtype=np.float64
         )
 
         # Observation: dict format for GoalEnv
         self.observation_space = spaces.Dict({
             "observation": spaces.Box(low=-np.inf, high=np.inf, shape=observation_shape, dtype=np.float32),
-            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32),
-            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
+            "achieved_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32),
+            "desired_goal": spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
         })
 
     def _meet_contact_constraint_requirement(self) -> bool:
@@ -97,13 +98,13 @@ class NeedlePickTrainEnv(PsmEnv):
         # Load needle (rigid body)
         yaw = (np.random.rand() - 0.5) * np.pi
         needle_pos = (
-            np.mean(self.WORKSPACE_LIMITS[0]) + (np.random.rand() - 0.5) * 0.1,
-            np.mean(self.WORKSPACE_LIMITS[1]) + (np.random.rand() - 0.5) * 0.1,
-            self.WORKSPACE_LIMITS[2][0] + 0.01
+            np.mean(self.workspace_limits1[0]) + (np.random.rand() - 0.5) * 0.1,
+            np.mean(self.workspace_limits1[1]) + (np.random.rand() - 0.5) * 0.1,
+            self.workspace_limits1[2][0] + 0.01
         )
         needle_id = p.loadURDF(
             os.path.join(ASSET_DIR_PATH, 'needle/needle_40mm.urdf'),
-            needle_pos,
+            np.array(needle_pos) * self.SCALING,   # <-- ensure position is in sim (scaled) units
             p.getQuaternionFromEuler((0, 0, yaw)),
             useFixedBase=False,
             globalScaling=self.SCALING
@@ -113,20 +114,21 @@ class NeedlePickTrainEnv(PsmEnv):
         self.obj_id, self.obj_link1 = needle_id, 1
 
         self.needle_out_of_bounds = False
-        self.goal = self._sample_goal()
+        # Keep goal in same sim coordinate frame as loaded object (scale to sim units)
+        self.goal = np.array(self._sample_goal()) * self.SCALING
 
     def _sample_goal(self):
-        limits = self.WORKSPACE_LIMITS
+        limits = self.workspace_limits1
         return np.array([
             np.random.uniform(limits[0][0], limits[0][1]),
             np.random.uniform(limits[1][0], limits[1][1]),
-            np.random.uniform(limits[2][0], limits[2][1])
+            self.workspace_limits1[2][1] - 0.03
         ])
 
     def _get_obs(self):
         robot_state = self._get_robot_state(idx=0)
         object_pos, object_orn_quat = get_link_pose(self.obj_id, self.obj_link1)
-        goal_pos = self.goal
+        goal_pos = self.goal 
 
         object_euler = p.getEulerFromQuaternion(object_orn_quat)
         needle_yaw = object_euler[2]
@@ -144,7 +146,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # If in curriculum mode, add the normalized timestep
         if self.reward_mode == "less_sparse":
             final_observation = np.concatenate([base_observation, needle_yaw, 
-                                                is_gripping_now, was_gripping])
+                                                is_gripping_now, was_gripping]).astype(np.float32)
         elif self.reward_mode == "curriculum":
             # Normalize the timestep to a [0, 1] range. 
             # Let's assume the curriculum completes at 1,000,000 steps.
@@ -154,24 +156,23 @@ class NeedlePickTrainEnv(PsmEnv):
             
             # Concatenate the normalized step to the observation
             final_observation = np.concatenate([base_observation,  needle_yaw, 
-                                                is_gripping_now, was_gripping, 
-                                                normalized_step]).astype(np.float32)
+                                                is_gripping_now, was_gripping]).astype(np.float32)
         else:
             final_observation = np.concatenate([base_observation, is_gripping_now, 
                                                 was_gripping]).astype(np.float32)
 
         return {
             "observation": final_observation,
-            "achieved_goal": np.array(object_pos, dtype=np.float32),
-            "desired_goal": np.array(goal_pos, dtype=np.float32)
+            "achieved_goal": np.array(np.concatenate([object_pos, robot_state[:3]]), dtype=np.float32),
+            "desired_goal": np.array(np.concatenate([goal_pos, object_pos]), dtype=np.float32)
         }
 
     def compute_reward(self, obs, info):
         # # Jarak gripper ke needle (target)
         position = obs["observation"][:3]
         quat = obs["observation"][3:7]
-        achieved = obs["achieved_goal"]
-        desired = obs["desired_goal"]
+        achieved = obs["achieved_goal"][:3]
+        desired = obs["desired_goal"][:3]
 
         distance = np.linalg.norm(position - achieved)/self.SCALING    # Normalize distance by scaling factor, converting to real-world meter unit
         print(f"Distance to needle: {distance}")
@@ -187,6 +188,7 @@ class NeedlePickTrainEnv(PsmEnv):
         is_gripping_now = self.is_gripping_now
         just_grasped = is_gripping_now and not self.was_gripping
         fail_to_grip = not is_gripping_now and self.was_gripping
+        grip_success = is_gripping_now and self.was_gripping
 
         # Jarak needle ke goal akhir
         needle_to_goal = np.linalg.norm(achieved - desired) / self.SCALING
@@ -196,116 +198,93 @@ class NeedlePickTrainEnv(PsmEnv):
         if self.reward_mode == "less_sparse":
             return self.less_sparse_reward_shape(distance, 
                                                  abs_yaw_error, just_grasped, 
-                                                 is_gripping_now, fail_to_grip,
+                                                 grip_success, fail_to_grip,
                                                  needle_to_goal)
         elif self.reward_mode == "curriculum":
-            return self.curriculum_learn_reward(obs, distance, 
+            return self.curriculum_learn_reward(distance, 
                                                 abs_yaw_error, just_grasped, 
-                                                 is_gripping_now, fail_to_grip, 
+                                                 grip_success, fail_to_grip, 
                                                  needle_to_goal)
 
         # Default: sparse
         # reward = (0.01-distance) * 0.01
-        reward = (0.01-distance) * 0.1
+        reward = (0.03-distance) * 0.1
         # reward = np.exp(0.01-distance)
 
         if just_grasped:
             print("🎉 Just Grasped! Applying Bonus.")
-            reward += 0.009995  # Large, one-time bonus for success 
+            # reward += 0.009995  # Large, one-time bonus for success 
 
         if is_gripping_now:
             reward += 0.01
-            reward -= needle_to_goal * 0.1
+            reward -= needle_to_goal * 0.01
             # reward += np.exp(0.01- needle_to_goal)
         
+        print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
 
     def less_sparse_reward_shape(self, distance, 
                                  abs_yaw_error, just_grasped, 
-                                 is_gripping_now, fail_to_grip, 
+                                 grip_succes, fail_to_grip, 
                                  needle_to_goal):
-        reward = (0.01 - distance) * 0.1
-
         
-        reward += (1 - abs_yaw_error) * 0.001
+        reward = (0.03 - distance) * 0.1
+        reward -= abs_yaw_error * 0.001
+        
         if just_grasped:
-            print("🎉 Just Grasped! Applying Bonus.")
+            print("🎉 Just Contact! Applying Bonus.")
             reward += 1.0  # Large, one-time bonus for success
 
         if fail_to_grip:
-            
+            print("Failed to hold, PENALIZED")
             reward -= 0.9995 # Erase almost all of given bonus
-            reward = (0.01-distance) * 0.1 
+            # reward = (0.01-distance) * 0.1 
 
-        if is_gripping_now:
-            # --- STAGE 2: Move the needle to the goal ---
-            # Agent is now holding the needle. Reward for moving needle to goal.
-            reward -= needle_to_goal * 0.1
-            
-            # Constant "holding" bonus to incentivize not dropping the needle
-            reward += 0.01  
-              
-       
-        print(f"is_gripping_now: {is_gripping_now}")
+        if grip_succes:
+            print("Consistent Contact!")
+            reward += 2 - needle_to_goal 
+                   
+        print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
 
-    def curriculum_learn_reward(self, obs, distance, 
+    def curriculum_learn_reward(self, distance, 
                                 abs_yaw_error, just_grasped, 
-                                is_gripping_now, fail_to_grip, 
+                                grip_success, fail_to_grip, 
                                 needle_to_goal):
         
-        STAGE_1_END = 0.25  # End of Approach stage
-        STAGE_2_END = 0.50  # End of Align stage
-        STAGE_3_END = 0.75  # End of Grasp stage
-
         # Reward/Penalty Weights
-        YAW_PENALTY_WEIGHT = 1.0
-        GOAL_REWARD_WEIGHT = 2.0
+        YAW_PENALTY_WEIGHT = 0.001
         GRASP_BONUS = 1.0
         GRASP_PENALTY = 0.9995
+        SUCCESS_GRIP_REWARD = 2.0
 
-        normalized_step = obs["observation"][-1]
+        reward = 0
 
-        base_reward = 0.01 - distance
-        reward = 0.0
+        if abs_yaw_error > 0.005:
+            reward += 0.01 - abs_yaw_error*YAW_PENALTY_WEIGHT
+        elif distance > 0.009:
+            reward += (0.03 - distance)   
+            if abs_yaw_error <= 0.005:
+                if just_grasped:
+                    print("🎉 Just Contact! Applying Bonus.")
+                    reward += GRASP_BONUS  # Large, one-time bonus for success
+                elif fail_to_grip:
+                    print("Failed to hold, PENALIZED")
+                    reward -= GRASP_PENALTY  # Erase almost all of given bonus
+                elif grip_success:
+                    print("Consistent Contact!")
+                    reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+        else:
+            reward -=0.005
+        
+        print(f"Reward: {reward}")
 
-        if normalized_step < STAGE_1_END:
-            stage = 1
-            reward = base_reward
-        
-        elif normalized_step < STAGE_2_END:
-            stage = 2
-            reward = base_reward
-            reward -= YAW_PENALTY_WEIGHT * abs_yaw_error
-        
-        elif normalized_step < STAGE_3_END:
-            stage = 3
-            reward = base_reward
-            reward -= YAW_PENALTY_WEIGHT * abs_yaw_error
-            
-            if just_grasped:
-                print("🎉 Just Grasped! Applying Bonus.")
-                reward += GRASP_BONUS
-
-            if fail_to_grip:
-                print("Failed to hold, PENALIZED")
-                reward -= GRASP_PENALTY # Erase almost all of given bonus
-        
-        else: 
-            stage = 4
-            reward = base_reward
-            
-            if is_gripping_now:
-                goal_reward = 0.01 - needle_to_goal
-                reward += GOAL_REWARD_WEIGHT * goal_reward
-        
-        print(f"Stage: {stage}, Reward: {reward:.4f}")
         return reward
 
     def _set_action(self, action: np.ndarray):
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        action = np.clip(action, self.action_space.low, self.action_space.high) 
         self.jaw_action = action[4]
         super()._set_action(action)
 
@@ -325,6 +304,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def step(self, action):
         self.timestep += 1
+        # action = action * self.ACTION_SCALING
         self._set_action(action)
         step(1)
         super()._step_callback()
