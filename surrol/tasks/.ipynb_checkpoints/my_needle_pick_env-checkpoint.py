@@ -256,6 +256,7 @@ class NeedlePickTrainEnv(PsmEnv):
         
         # Reward/Penalty Weights
         YAW_PENALTY_WEIGHT = 0.001
+        DISTANCE_PENALTY_WEIGHT = 0.1
         GRASP_BONUS = 1.0
         GRASP_PENALTY = 0.9995
         SUCCESS_GRIP_REWARD = 2.0
@@ -265,7 +266,7 @@ class NeedlePickTrainEnv(PsmEnv):
         if abs_yaw_error > 0.005:
             reward += 0.01 - abs_yaw_error*YAW_PENALTY_WEIGHT
         elif distance > 0.009:
-            reward += (0.03 - distance)   
+            reward += 0.03 - distance*DISTANCE_PENALTY_WEIGHT   
             if abs_yaw_error <= 0.005:
                 if just_grasped:
                     print("🎉 Just Contact! Applying Bonus.")
