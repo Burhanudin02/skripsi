@@ -266,28 +266,28 @@ class NeedlePickTrainEnv(PsmEnv):
             print("STAGE 1: YAW CORRECTION")
             reward += 0.01 - abs_yaw_error*YAW_PENALTY_WEIGHT
             
-            if abs_yaw_error <= 0.005:
-                print("STAGE 2: DISTANCE APPROACH")
-                reward += 0.03 - (distance)*DISTANCE_PENALTY_WEIGHT
+        elif abs_yaw_error <= 0.005:
+            print("STAGE 2: DISTANCE APPROACH")
+            reward += 0.03 - (distance)*DISTANCE_PENALTY_WEIGHT
+            
+            if abs_yaw_error <= 0.005 and 0.008 < distance <= 0.009995:
+                print("STAGE 3: GRASPING PHASE")
+                reward += 0.05
                 
-                if abs_yaw_error <= 0.005 and 0.008 < distance <= 0.009995:
-                    print("STAGE 3: GRASPING PHASE")
-                    reward += 0.05
-                    
-                    if just_grasped:
-                        print("🎉 Just Contact! Applying Bonus.")
-                        reward += GRASP_BONUS  # Large, one-time bonus for success
-                    
-                    elif fail_to_grip:
-                        print("Failed to hold, PENALIZED")
-                        reward -= GRASP_PENALTY  # Erase almost all of given bonus
-                    
-                    elif grip_success:
-                        print("STAGE 4: SUCCESSFUL GRIP MAINTAINED")
-                        reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+                if just_grasped:
+                    print("🎉 Just Contact! Applying Bonus.")
+                    reward += GRASP_BONUS  # Large, one-time bonus for success
                 
-                elif distance < 0.008:
-                    reward -= 0.01
+                elif fail_to_grip:
+                    print("Failed to hold, PENALIZED")
+                    reward -= GRASP_PENALTY  # Erase almost all of given bonus
+                
+                elif grip_success:
+                    print("STAGE 4: SUCCESSFUL GRIP MAINTAINED")
+                    reward += SUCCESS_GRIP_REWARD - needle_to_goal   
+            
+            elif distance < 0.008:
+                reward -= 0.01
         
         print(f"Reward: {reward}")
 
