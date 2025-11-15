@@ -6,7 +6,7 @@ from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 1
+num_envs = 8
 trajectory_len = 10240
 
 def make_env():
@@ -21,9 +21,9 @@ if __name__ == '__main__':
     # check_env(env)
 
     # Create a directory to save the TensorBoard logs
-    log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/logs"
+    log_dir = "/home/home-server/SurRoL_venv/skripsi/surrol/tasks/logs"
 
-    base_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/"
+    base_path = "/home/home-server/SurRoL_venv/skripsi/surrol/tasks/models/"
     prefix = "needle_pick_ppo_gpu_"
 
     # Cari semua file/folder dengan prefix
@@ -48,15 +48,15 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
 
-    agent_index = 38     # index model awal yang akan diload untuk re-train
+    # agent_index = 38     # index model awal yang akan diload untuk re-train
     jumlah_retrain = 0
-    model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+    # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
 
     ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
-    #             batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
-    #             n_epochs=3, tensorboard_log=log_dir
-    #             )
+    model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
+                batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
+                n_epochs=3, tensorboard_log=log_dir
+                )
     
     # Train the model and use TensorBoard callback
     model.learn(total_timesteps=102400, progress_bar=True)
