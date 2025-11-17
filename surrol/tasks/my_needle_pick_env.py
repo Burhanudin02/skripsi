@@ -241,29 +241,40 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def less_sparse_reward_shape(self, distance, 
                                  abs_yaw_error, just_grasped, 
-                                 grip_succes, fail_to_grip, 
+                                 grip_success, fail_to_grip, 
                                  needle_to_goal):
         
-        reward = (0.03 - distance) * 0.1
-        reward -= abs_yaw_error * 0.001
+        # --- 1. Normalization to [0,1] ---
+        dist_score = 1.0 - min(distance / 0.1, 1.0)
+        if distance < 0.008:    # soft push away when too close (but smooth)
+            dist_score -= (0.008 - distance) * 5.0   # small penalty slope
         
+        yaw_score  = 1.0 - min(abs_yaw_error / np.deg2rad(15), 1.0) # use 15 degree to maintain the score --> gradient is mooth
+        
+        goal_score = 1.0 - min(needle_to_goal / 0.1, 1.0)
+    
+        # --- 2. Weights ---
+        W_DIST = 0.55
+        W_YAW  = 0.25
+        W_GOAL = 0.20
+    
+        # --- 3. Core smooth shaping reward ---
+        reward = (dist_score * W_DIST) + (yaw_score * W_YAW) + (goal_score * W_GOAL)
+    
+        # --- 4. Soft event bonuses/penalties ---
         if just_grasped:
-            print("🎉 Just Contact! Applying Bonus.")
-            reward += 1.0  # Large, one-time bonus for success
-
+            reward += 0.15                       # positive, but not dominating
+        
         if fail_to_grip:
-            print("Failed to hold, PENALIZED")
-            reward -= 0.9995 # Erase almost all of given bonus
-            # reward = (0.01-distance) * 0.1 
+            reward -= 0.20                       # mild penalty, not catastrophic        
+        
+        if grip_success:
+            reward += 0.15 + (0.10 * goal_score)          # softly boosts until goal
+    
+        # small time penalty to prevent idle oscillation
+        reward -= 0.001
 
-        if grip_succes:
-            print("Consistent Contact!")
-            reward += 2 - needle_to_goal
-
-            if needle_to_goal < 0.01:
-                print("🎉 Final placement success!")
-                self.force_done = True 
-                   
+        print(f"distance: {distance}")           
         print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
