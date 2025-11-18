@@ -5,7 +5,7 @@ from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 8
+num_envs = 2
 trajectory_len = 10240
 
 def make_env():
