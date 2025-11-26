@@ -241,40 +241,25 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def less_sparse_reward_shape(self, distance, 
                                  abs_yaw_error, just_grasped, 
-                                 grip_success, fail_to_grip, 
+                                 grip_succes, fail_to_grip, 
                                  needle_to_goal):
         
-        # --- 1. Normalization to [0,1] ---
-        dist_score = 1.0 - min(distance / 0.1, 1.0)
-        if distance < 0.008:    # soft push away when too close (but smooth)
-            dist_score -= (0.008 - distance) * 5.0   # small penalty slope
+        reward = (0.03 - distance) * 0.1
+        reward -= abs_yaw_error * 0.001
         
-        yaw_score  = 1.0 - min(abs_yaw_error / np.deg2rad(15), 1.0) # use 15 degree to maintain the score --> gradient is mooth
-        
-        goal_score = 1.0 - min(needle_to_goal / 0.1, 1.0)
-    
-        # --- 2. Weights ---
-        W_DIST = 0.55
-        W_YAW  = 0.25
-        W_GOAL = 0.20
-    
-        # --- 3. Core smooth shaping reward ---
-        reward = (dist_score * W_DIST) + (yaw_score * W_YAW) + (goal_score * W_GOAL)
-    
-        # --- 4. Soft event bonuses/penalties ---
         if just_grasped:
-            reward += 0.15                       # positive, but not dominating
-        
-        if fail_to_grip:
-            reward -= 0.20                       # mild penalty, not catastrophic        
-        
-        if grip_success:
-            reward += 0.15 + (0.10 * goal_score)          # softly boosts until goal
-    
-        # small time penalty to prevent idle oscillation
-        reward -= 0.001
+            print("🎉 Just Contact! Applying Bonus.")
+            reward += 0.01  # Large, one-time bonus for success
 
-        print(f"distance: {distance}")           
+        if fail_to_grip:
+            print("Failed to hold, PENALIZED")
+            reward -= 0.01 # Erase almost all of given bonus
+            # reward = (0.01-distance) * 0.1 
+
+        if grip_succes:
+            print("Consistent Contact!")
+            reward += (2 - needle_to_goal) * 0.01 
+                   
         print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
         return reward
@@ -287,9 +272,10 @@ class NeedlePickTrainEnv(PsmEnv):
         # Reward/Penalty Weights
         YAW_PENALTY_WEIGHT = 0.001
         DISTANCE_PENALTY_WEIGHT = 0.1
-        GRASP_BONUS = 1.0
-        GRASP_PENALTY = 0.9995
-        SUCCESS_GRIP_REWARD = 2.0
+        GRASP_BONUS = 0.02
+        GRASP_PENALTY = 0.02
+        SUCCESS_GRIP_REWARD = 0.05
+        FINAL_BONUS = 0.06
 
         reward = 0
 
@@ -326,7 +312,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # =====================================================
         if stage == 3:
 
-            reward += 0.05
+            reward += 0.04
 
             if just_grasped:
                 reward += GRASP_BONUS
@@ -363,7 +349,7 @@ class NeedlePickTrainEnv(PsmEnv):
             if grip_success and needle_to_goal < 0.01:
                 print("🎉 Final placement success!")
                 self.force_done = True
-                reward += SUCCESS_GRIP_REWARD   # final bonus
+                reward += FINAL_BONUS   # final bonus
                 return reward
 
             if not grip_success:
@@ -419,7 +405,8 @@ class NeedlePickTrainEnv(PsmEnv):
         self.was_gripping = self._contact_constraint is not None
         
         if self.force_done:
-            done = True
+            # done = True
+            done = False
         else:
             done = self._is_done(achieved, desired)
 
@@ -433,7 +420,7 @@ class NeedlePickTrainEnv(PsmEnv):
     def check_needle_out_of_bounds(self):
         x, y, _ = get_link_pose(self.obj_id, self.obj_link1)[0]
         limits = self.workspace_limits1
-        return not (limits[0][0] <= x <= limits[0][1] and limits[1][0] <= y <= limits[1][1])
+        return not (limits[0][0] - 0.03 <= x <= limits[0][1] + 0.03 and limits[1][0] - 0.03 <= y <= limits[1][1] + 0.03)
 
     def realign_needle(self):
         if self.needle_out_of_bounds:
@@ -448,4 +435,3 @@ class NeedlePickTrainEnv(PsmEnv):
     def render(self, mode=None):
         if mode == 'human':
             return np.array([])
-
