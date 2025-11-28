@@ -1,87 +1,242 @@
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv
-from stable_baselines3.common.env_checker import check_env
-from surrol.tasks.my_needle_pick_env_old import NeedlePickTrainEnvOld  # Your environment
-from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 import os, re
+import numpy as np
+import matplotlib.pyplot as plt
 
-# DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 1
-trajectory_len = 10240
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.callbacks import BaseCallback
 
+from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
+
+
+# ============================================================
+# Smoother
+# ============================================================
+def smooth_curve(values, window=200):
+    if len(values) < window:
+        return values
+    out = []
+    for i in range(len(values)):
+        start = max(0, i - window + 1)
+        out.append(np.mean(values[start:i+1]))
+    return out
+
+
+# ============================================================
+# Live Training Plot Callback
+# ============================================================
+class LivePlotCallback(BaseCallback):
+
+    def __init__(self, update_freq=10, verbose=0):
+        super().__init__(verbose)
+
+        self.update_freq = update_freq
+        self.rewards = []
+        self.contacts = []
+        self.distances = []
+        self.global_step = 0
+
+        # ----- SETUP LIVE PLOTS -----
+        plt.ion()
+        self.fig, self.axs = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+
+        self.ax_reward, self.ax_contact, self.ax_dist = self.axs
+
+        # reward plot
+        self.reward_line_raw, = self.ax_reward.plot([], [], label="Reward", alpha=0.4)
+        self.reward_line_smooth, = self.ax_reward.plot([], [], label="Smoothed (200)", linewidth=2)
+        self.ax_reward.set_title("Reward per Step")
+        self.ax_reward.grid(True)
+        self.ax_reward.legend()
+
+        # contact plot
+        self.contact_line_raw, = self.ax_contact.plot([], [], label="Contact 0/1", drawstyle='steps-post')
+        self.ax_contact.set_title("Contact Events")
+        self.ax_contact.grid(True)
+        self.ax_contact.legend()
+
+        # distance plot
+        self.dist_line_raw, = self.ax_dist.plot([], [], label="Distance")
+        self.dist_line_smooth, = self.ax_dist.plot([], [], label="Smoothed (200)", linewidth=2)
+        self.ax_dist.set_title("Distance to Goal")
+        self.ax_dist.grid(True)
+        self.ax_dist.legend()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+
+    # -------------------------------------------
+    # Called after each environment step
+    # -------------------------------------------
+    def _on_step(self):
+
+        info = self.locals["infos"][0]     # vec env → first env
+        reward = float(self.locals["rewards"][0])
+
+        # append reward
+        self.rewards.append(reward)
+
+        # contact = physics flag
+        contact = 1 if info.get("is_gripping", False) else 0
+        self.contacts.append(contact)
+
+        # distance to goal
+        obs = self.locals["new_obs"]
+        ach = obs["achieved_goal"][0][:3]
+        des = obs["desired_goal"][0][:3]
+        dist = float(np.linalg.norm(ach - des) / 5.0)
+        self.distances.append(dist)
+
+        # update live plot
+        if self.global_step % self.update_freq == 0:
+            self.update_plot()
+
+        self.global_step += 1
+
+        return True
+
+
+    # -------------------------------------------
+    # Redraw live plot
+    # -------------------------------------------
+    def update_plot(self):
+
+        xs = np.arange(len(self.rewards))
+
+        # reward
+        self.reward_line_raw.set_xdata(xs)
+        self.reward_line_raw.set_ydata(self.rewards)
+
+        r_smooth = smooth_curve(self.rewards, window=200)
+        self.reward_line_smooth.set_xdata(xs)
+        self.reward_line_smooth.set_ydata(r_smooth)
+
+        # contact
+        self.contact_line_raw.set_xdata(xs)
+        self.contact_line_raw.set_ydata(self.contacts)
+
+        # distance
+        self.dist_line_raw.set_xdata(xs)
+        self.dist_line_raw.set_ydata(self.distances)
+
+        d_smooth = smooth_curve(self.distances, window=200)
+        self.dist_line_smooth.set_xdata(xs)
+        self.dist_line_smooth.set_ydata(d_smooth)
+
+        # autoscale everything
+        for ax in self.axs:
+            ax.relim()
+            ax.autoscale_view()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+
+# ============================================================
+# Environment Factory
+# ============================================================
 def make_env():
-    # return NeedlePickTrainEnvOld(render_mode='human')
-    return NeedlePickTrainEnv(render_mode=None, reward_mode="curriculum", num_envs=num_envs, traj_len = trajectory_len)
+    return NeedlePickTrainEnv(
+        render_mode=None,
+        reward_mode="curriculum",
+        num_envs=1,
+        traj_len=10240
+    )
 
+
+# ============================================================
+# TRAIN SCRIPT WITH LIVE PLOT
+# ============================================================
 if __name__ == '__main__':
-    num_envs = num_envs  # Adjust the number of parallel environments you want
 
-    # Create parallel environments
-    env = SubprocVecEnv([make_env for _ in range(num_envs)])
-    # check_env(env)
+    # IMPORTANT: real-time plotting only works with 1 env
+    num_envs = 1
+    env = DummyVecEnv([make_env])
 
-    # Create a directory to save the TensorBoard logs
     log_dir = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/logs"
-
     base_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/experiment/models/"
     prefix = "needle_pick_ppo_gpu_"
 
-    # Cari semua file/folder dengan prefix
+    # -----------------------------------------------------------
+    # Create new PPO model from scratch (OLD STYLE)
+    # -----------------------------------------------------------
+    # model = PPO(
+    #     policy="MultiInputPolicy",
+    #     env=env,
+    #     verbose=1,
+    #     device="cuda",
+    #     n_steps=1024,           # your trajectory_len
+    #     batch_size=256,
+    #     learning_rate=3e-4,
+    #     ent_coef=0.005,
+    #     clip_range=0.2,
+    #     n_epochs=3,
+    #     tensorboard_log=log_dir
+    # )
+
+    agent_index = 9     # index model awal yang akan diload untuk re-train
+    jumlah_retrain = 0
+    # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+    model = PPO.load(f"/home/host-20-04/Downloads/needle_pick_ppo_gpu_9.zip", env, device='cuda', tensorboard_log=log_dir)
+
+    # -----------------------------------------------------------
+    # Live training diagnostic window
+    # -----------------------------------------------------------
+    callback = LivePlotCallback(update_freq=10)
+
+    # -----------------------------------------------------------
+    # Train with real-time plotting
+    # -----------------------------------------------------------
+    model.learn(total_timesteps=102400, progress_bar=True, callback=callback)
+
+    # -----------------------------------------------------------
+    # Determine next checkpoint number to save
+    # -----------------------------------------------------------
     all_files = os.listdir(base_path)
-    
-    # Filter hanya yang sesuai pola prefix
     pattern = re.compile(rf"^{prefix}(\d+)$")
     indices = []
-    
+
     for f in all_files:
         fname, _ = os.path.splitext(f)
         match = pattern.match(fname)
-        print(f, match)
         if match:
             indices.append(int(match.group(1)))
-    
+
+    # Next model name
     if indices:
         last_idx = max(indices)
-        print(f"Indeks terakhir: {last_idx}")
     else:
-        raise FileNotFoundError(f"Tidak ada file dengan prefix {prefix} di {base_path}")
-      
-    # First initialization of PPO model parameter
+        last_idx = 0
 
-    agent_index = 38     # index model awal yang akan diload untuk re-train
-    jumlah_retrain = 0
-    model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
+    # Save new checkpoint (model after first training)
+    next_idx = last_idx + 1
+    save_path = f"{base_path}{prefix}{next_idx}"
+    model.save(save_path)
+    print(f"Saved → {save_path}")
 
-    ## model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=512, batch_size=64, learning_rate=2.5e-4, ent_coef=0.01, clip_range=0.2, tensorboard_log=log_dir)
-    # model = PPO('MultiInputPolicy', env, verbose=1, device='cuda', n_steps=trajectory_len, 
-    #             batch_size=256, learning_rate=3e-4, ent_coef=0.005, clip_range=0.2,
-    #             n_epochs=3, tensorboard_log=log_dir
-    #             )
-    
-    # Train the model and use TensorBoard callback
-    model.learn(total_timesteps=102400, progress_bar=True)
-
-    # Save the trained model
-    model.save(f"{base_path}{prefix}{last_idx+1}")
-
+    # -----------------------------------------------------------
     # Retrain the initialized model
-    start_idx = last_idx+1   # model terakhir yang ada
-    end_idx = start_idx + jumlah_retrain    # model terakhir yang akan disimpan
+    # -----------------------------------------------------------
+    start_idx = next_idx          # <-- FIXED (instead of max(indices)+2)
+    end_idx = start_idx + jumlah_retrain
 
-    if not start_idx == end_idx:
+    if jumlah_retrain > 0:
         for i in range(start_idx, end_idx):
-            # Load model sebelumnya
+            # Load previous checkpoint
             model_path = f"{base_path}{prefix}{i}"
             model = PPO.load(model_path, env, device='cuda')
-        
-            # Training
-            model.learn(total_timesteps=102400, progress_bar=True)
-        
-            # Save dengan nomor urut berikutnya
-            save_path = f"{base_path}{prefix}{i+1}"
-            model.save(save_path)
-        
-            print(f"Model {i} -> {i+1} selesai disimpan di {save_path}")
+
+            # Train
+            model.learn(total_timesteps=102400, progress_bar=True, callback=LivePlotCallback(update_freq=10))
+
+            # Save next checkpoint
+            next_path = f"{base_path}{prefix}{i+1}"
+            model.save(next_path)
+            print(f"Model {i} → {i+1} saved to {next_path}")
+
+
+
 
 
 #needle_pick_ppo_gpu --> n_steps=1024, batch_size=32, learning_rate=1e-14, clip_range=0.1

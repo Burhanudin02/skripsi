@@ -230,10 +230,6 @@ class NeedlePickTrainEnv(PsmEnv):
         if is_gripping_now:
             reward += 0.01
             reward -= needle_to_goal * 0.01
-
-            if needle_to_goal < 0.01:
-                print("🎉 Final placement success!")
-                self.force_done = True
         
         print(f"is_gripping_now: {self.is_gripping_now}, was_gripping: {self.was_gripping}")
         print(f"Reward: {reward}")
@@ -271,11 +267,12 @@ class NeedlePickTrainEnv(PsmEnv):
 
         # Reward/Penalty Weights
         YAW_PENALTY_WEIGHT = 0.001
+        SMOOTHING_FACTOR = 0.007
         DISTANCE_PENALTY_WEIGHT = 0.1
-        GRASP_BONUS = 0.02
-        GRASP_PENALTY = 0.02
-        SUCCESS_GRIP_REWARD = 0.05
-        FINAL_BONUS = 0.06
+        GRASP_BONUS = 0.00245
+        GRASP_PENALTY = 0.00245
+        SUCCESS_GRIP_REWARD = 0.0225
+        FINAL_BONUS = 0.001
 
         reward = 0
 
@@ -286,7 +283,7 @@ class NeedlePickTrainEnv(PsmEnv):
             reward += 0.01 - abs_yaw_error * YAW_PENALTY_WEIGHT
 
             # ✓ Advance to Stage 2
-            if abs_yaw_error <= 0.02:
+            if abs_yaw_error <= 0.01:
                 self.stage = 2
                 print("➡️ STAGE 1 complete → Moving to Stage 2")
 
@@ -297,13 +294,19 @@ class NeedlePickTrainEnv(PsmEnv):
         # 🎯 STAGE 2 — APPROACH BY DISTANCE
         # =====================================================
         if stage == 2:
-            reward += 0.03 - distance * DISTANCE_PENALTY_WEIGHT
+            reward += 0.02 - distance * DISTANCE_PENALTY_WEIGHT
 
             if 0.008 < distance <= 0.009995:
                 self.stage = 3
                 print("➡️ STAGE 2 complete → Moving to Stage 3")
 
+            reward -= SMOOTHING_FACTOR
+            if distance > 0.03:
+                print("Distance too far, minimum reward applied")
+                reward = max(reward, 0.009)
+            
             print("Current Stage: 2 (Approach)")
+            
             return reward
 
 
@@ -312,7 +315,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # =====================================================
         if stage == 3:
 
-            reward += 0.04
+            reward += 0.02
 
             if just_grasped:
                 reward += GRASP_BONUS
@@ -337,6 +340,7 @@ class NeedlePickTrainEnv(PsmEnv):
                 self.stage = 2
 
             print("Current Stage: 3 (Grasping)")
+            reward -= SMOOTHING_FACTOR
             return reward
 
 
@@ -344,7 +348,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # 🎯 STAGE 4 — HOLDING & PLACEMENT
         # =====================================================
         if stage == 4:
-            reward += SUCCESS_GRIP_REWARD - needle_to_goal
+            reward += SUCCESS_GRIP_REWARD - needle_to_goal * DISTANCE_PENALTY_WEIGHT
 
             if grip_success and needle_to_goal < 0.01:
                 print("🎉 Final placement success!")
@@ -360,6 +364,7 @@ class NeedlePickTrainEnv(PsmEnv):
                 return reward
 
             print("Current Stage: 4 (Success & Placement)")
+            reward -= SMOOTHING_FACTOR
             return reward
     
 
