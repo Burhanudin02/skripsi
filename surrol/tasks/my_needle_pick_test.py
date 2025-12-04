@@ -45,10 +45,11 @@ def analyze_grip_episodes(contact_series):
 def evaluate_model(model_path, num_episodes=10, max_steps=None, csv_path=None):
     if csv_path is None:
         # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_full.csv"
-        # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_curriculum_rebalanced.csv"
+        # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_curriculum.csv"
+        csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_curriculum_new.csv"
         # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_sparse.csv"
-        csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_less_sparse.csv"
-        csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_less_sparse_best.csv"     # current best is train number 12
+        # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_less_sparse.csv"
+        # csv_path = "/home/host-20-04/SurRol_venv/SurRoL/surrol/tasks/test_reward_log/step_rewards_less_sparse_best.csv"     # current best is train number 12
     env = DummyVecEnv([make_env])
     model = PPO.load(model_path)
 
@@ -269,14 +270,14 @@ def finalize_and_exit(step_rewards, contact_values, distance_values, total_rewar
 def make_env():
     return NeedlePickTrainEnv(
         render_mode="human",
-        reward_mode="less_sparse",
+        reward_mode="curriculum",
         traj_len=10240
     )
 # -----------------------------------------------------------
 # RUN MAIN
 # -----------------------------------------------------------
 if __name__ == "__main__":
-    # model_path = "/home/host-20-04/Downloads/needle_pick_ppo_gpu_20.zip"
+    model_path = "/home/host-20-04/Downloads/numpang_data/skripsi/surrol/tasks/experiment/curriculum/models/needle_pick_ppo_gpu_40.zip"
     # model_path = "/home/host-20-04/Downloads/numpang_data/skripsi/surrol/tasks/experiment/sparse/models/needle_pick_ppo_gpu_20.zip"
-    model_path = "/home/host-20-04/Downloads/numpang_data/skripsi/surrol/tasks/experiment/less_sparse/models/needle_pick_ppo_gpu_12.zip"
-    evaluate_model(model_path, num_episodes=3, max_steps=5120)
+    # model_path = "/home/host-20-04/Downloads/numpang_data/skripsi/surrol/tasks/experiment/less_sparse/models/needle_pick_ppo_gpu_20.zip"
+    evaluate_model(model_path, num_episodes=3, max_steps=10240)

@@ -294,17 +294,14 @@ class NeedlePickTrainEnv(PsmEnv):
         # 🎯 STAGE 2 — APPROACH BY DISTANCE
         # =====================================================
         if stage == 2:
+            
             reward += 0.02 - distance * DISTANCE_PENALTY_WEIGHT
-
+        
             if 0.008 < distance <= 0.009995:
                 self.stage = 3
                 print("➡️ STAGE 2 complete → Moving to Stage 3")
-
-            reward -= SMOOTHING_FACTOR
-            if distance > 0.03:
-                print("Distance too far, minimum reward applied")
-                reward = max(reward, 0.009)
             
+            reward -= SMOOTHING_FACTOR
             print("Current Stage: 2 (Approach)")
             
             return reward
@@ -399,10 +396,27 @@ class NeedlePickTrainEnv(PsmEnv):
         achieved = obs["achieved_goal"]
         desired = obs["desired_goal"]
 
+        current_joint_positions = self.psm1.get_current_joint_position()
+        joint_valid = self.psm1._check_joint_limits(current_joint_positions)
+
+        # If joints are out of bounds, reset and return early
+        if not joint_valid:
+            print("❌ Joint out of bounds in step() — resetting environment")
+            obs = self.reset()
+            # Return minimal info to avoid inconsistency
+            info = {
+                "stage": self.stage,
+                "is_gripping": False,
+                "needle_out_of_bounds": False,
+                "joint_valid": False
+            }
+            return obs, reward, False, info
+
         info = {
             "stage": self.stage,
             "is_gripping": self._contact_constraint is not None,
-            "needle_out_of_bounds": self.needle_out_of_bounds
+            "needle_out_of_bounds": self.needle_out_of_bounds,
+            "joint_valid": joint_valid
         }
 
         reward = self.compute_reward(obs, info)
@@ -414,7 +428,6 @@ class NeedlePickTrainEnv(PsmEnv):
             done = False
         else:
             done = self._is_done(achieved, desired)
-
 
         return obs, reward, done, info
 

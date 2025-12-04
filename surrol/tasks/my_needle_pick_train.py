@@ -132,7 +132,6 @@ class LivePlotCallback(BaseCallback):
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-
 # ============================================================
 # Environment Factory
 # ============================================================
@@ -143,7 +142,6 @@ def make_env():
         num_envs=1,
         traj_len=10240
     )
-
 
 # ============================================================
 # TRAIN SCRIPT WITH LIVE PLOT
@@ -161,24 +159,24 @@ if __name__ == '__main__':
     # -----------------------------------------------------------
     # Create new PPO model from scratch (OLD STYLE)
     # -----------------------------------------------------------
-    # model = PPO(
-    #     policy="MultiInputPolicy",
-    #     env=env,
-    #     verbose=1,
-    #     device="cuda",
-    #     n_steps=1024,           # your trajectory_len
-    #     batch_size=256,
-    #     learning_rate=3e-4,
-    #     ent_coef=0.005,
-    #     clip_range=0.2,
-    #     n_epochs=3,
-    #     tensorboard_log=log_dir
-    # )
+    model = PPO(
+        policy="MultiInputPolicy",
+        env=env,
+        verbose=1,
+        device="cuda",
+        n_steps=1024,           # your trajectory_len
+        batch_size=256,
+        learning_rate=3e-4,
+        ent_coef=0.005,
+        clip_range=0.2,
+        n_epochs=3,
+        tensorboard_log=log_dir
+    )
 
-    agent_index = 9     # index model awal yang akan diload untuk re-train
+    # agent_index = 9     # index model awal yang akan diload untuk re-train
     jumlah_retrain = 0
     # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda')
-    model = PPO.load(f"/home/host-20-04/Downloads/needle_pick_ppo_gpu_9.zip", env, device='cuda', tensorboard_log=log_dir)
+    # model = PPO.load(f"/home/host-20-04/Downloads/needle_pick_ppo_gpu_9.zip", env, device='cuda', tensorboard_log=log_dir)
 
     # -----------------------------------------------------------
     # Live training diagnostic window
