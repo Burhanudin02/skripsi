@@ -6,7 +6,7 @@ from surrol.tasks.my_needle_pick_env import NeedlePickTrainEnv
 import os, re
 
 # DEFINE THE NUMBER OF PARALLEL ENVIRONMENTS YOU WANT!  
-num_envs = 8
+num_envs = 3
 trajectory_len = 10240
 
 def make_env():
@@ -48,7 +48,7 @@ if __name__ == '__main__':
       
     # First initialization of PPO model parameter
 
-    # agent_index = 13     # index model awal yang akan diload untuk re-train
+    # agent_index = 40     # index model awal yang akan diload untuk re-train
     jumlah_retrain = 19
     # model = PPO.load(f"{base_path}{prefix}{agent_index}", env, device='cuda', tensorboard_log=log_dir)
 

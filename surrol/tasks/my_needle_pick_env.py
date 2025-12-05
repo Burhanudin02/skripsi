@@ -399,6 +399,29 @@ class NeedlePickTrainEnv(PsmEnv):
         achieved = obs["achieved_goal"]
         desired = obs["desired_goal"]
 
+        current_joint_positions = self.psm1.get_current_joint_position()
+        joint_valid = self.psm1._check_joint_limits(current_joint_positions)
+
+        # If joints are out of bounds, reset and return early
+        if not joint_valid:
+            print("❌ Joint out of bounds in step() — resetting environment")
+            obs = self.reset()
+            # Return minimal info to avoid inconsistency
+            info = {
+                "stage": self.stage,
+                "is_gripping": False,
+                "needle_out_of_bounds": False,
+                "joint_valid": False
+            }
+            return obs, 0.0, False, info
+
+        info = {
+            "stage": self.stage,
+            "is_gripping": self._contact_constraint is not None,
+            "needle_out_of_bounds": self.needle_out_of_bounds,
+            "joint_valid": joint_valid
+        }
+
         info = {
             "stage": self.stage,
             "is_gripping": self._contact_constraint is not None,
