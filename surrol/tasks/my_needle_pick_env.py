@@ -292,6 +292,7 @@ class NeedlePickTrainEnv(PsmEnv):
                 print("➡️ STAGE 1 complete → Moving to Stage 2")
 
             print("Current Stage: 1 (Yaw Correction)")
+            print(f"Reward: {reward}")
             return reward
         
         # =====================================================
@@ -306,7 +307,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
             reward -= SMOOTHING_FACTOR
             print("Current Stage: 2 (Approach)")
-            
+            print(f"Reward: {reward}")
             return reward
 
 
@@ -341,6 +342,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
             print("Current Stage: 3 (Grasping)")
             reward -= SMOOTHING_FACTOR
+            print(f"Reward: {reward}")
             return reward
 
 
@@ -365,6 +367,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
             print("Current Stage: 4 (Success & Placement)")
             reward -= SMOOTHING_FACTOR
+            print(f"Reward: {reward}")
             return reward
     
 
