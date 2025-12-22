@@ -301,7 +301,7 @@ class NeedlePickTrainEnv(PsmEnv):
         if stage == 2:
             reward += 0.02 - distance * DISTANCE_PENALTY_WEIGHT
 
-            if 0.008 < distance <= 0.009995:
+            if distance <= 0.009:
                 self.stage = 3
                 print("➡️ STAGE 2 complete → Moving to Stage 3")
 
@@ -336,7 +336,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
 
             # If the agent moves away, go back to Stage 2
-            if not 0.008 < distance <= 0.009995:
+            if not distance <= 0.009:
                 print("↩️ Lost proximity — returning to Stage 2")
                 self.stage = 2
 
