@@ -301,7 +301,7 @@ class NeedlePickTrainEnv(PsmEnv):
         if stage == 2:
             reward += 0.02 - distance * DISTANCE_PENALTY_WEIGHT
 
-            if distance <= 0.009:
+            if distance <= 0.007:
                 self.stage = 3
                 print("➡️ STAGE 2 complete → Moving to Stage 3")
 
@@ -316,7 +316,8 @@ class NeedlePickTrainEnv(PsmEnv):
         # =====================================================
         if stage == 3:
 
-            reward += 0.02
+            reward += 0.021
+            reward -= distance * DISTANCE_PENALTY_WEIGHT
 
             if just_grasped:
                 reward += GRASP_BONUS
@@ -333,12 +334,6 @@ class NeedlePickTrainEnv(PsmEnv):
                 else:
                     self.stage = 4
                     print("➡️ STAGE 3 complete → Moving to Stage 4")
-
-
-            # If the agent moves away, go back to Stage 2
-            if not distance <= 0.009:
-                print("↩️ Lost proximity — returning to Stage 2")
-                self.stage = 2
 
             print("Current Stage: 3 (Grasping)")
             reward -= SMOOTHING_FACTOR
