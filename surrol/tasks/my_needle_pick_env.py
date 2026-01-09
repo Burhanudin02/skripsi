@@ -224,7 +224,7 @@ class NeedlePickTrainEnv(PsmEnv):
         # reward = np.exp(0.01-distance)
 
         if just_grasped:
-            print("🎉 Just Grasped! Applying Bonus.")
+            print("🎉 Just Grasped!")
             # reward += 0.009995  # Large, one-time bonus for success 
 
         if is_gripping_now:
@@ -441,7 +441,7 @@ class NeedlePickTrainEnv(PsmEnv):
 
     def _is_done(self, achieved_goal, desired_goal):
         dist = np.linalg.norm(achieved_goal - desired_goal)
-        return dist < 0.1
+        return dist < 0.0001
 
     def check_needle_out_of_bounds(self):
         x, y, _ = get_link_pose(self.obj_id, self.obj_link1)[0]
